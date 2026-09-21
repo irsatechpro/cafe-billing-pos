@@ -48,7 +48,7 @@ export default function App() {
 
                 {/* Authentication Route */}
                 <Route path="/login" element={<AuthPage />} />
-                <Route path="/register" element={<AuthPage />} />
+                <Route path="/register" element={<Navigate to="/login" replace />} />
 
                 {/* Protected Staff & Admin Routes */}
                 <Route path="/cafe" element={<Navigate to="/admin/cafe" replace />} />

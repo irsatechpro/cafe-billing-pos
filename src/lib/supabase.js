@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import menuSeedData from '../data/menu_store.json';
 
 // Retrieve environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -17,9 +18,9 @@ export const supabase = isLiveSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-// Initial Local Storage Seed Data (Empty for dynamic multi-tenant registration)
-const INITIAL_CATEGORIES = [];
-const INITIAL_MENU_ITEMS = [];
+// Initial Local Storage Seed Data for Trio Bean Cafe
+const INITIAL_CATEGORIES = menuSeedData.categories || [];
+const INITIAL_MENU_ITEMS = menuSeedData.items || [];
 
 const INITIAL_TABLES = [
   { id: 't1', table_number: '1', name: 'Table 1', qr_token: 'tb-tbl-1-token', is_active: true },
@@ -36,17 +37,14 @@ class LocalFallbackStore {
   }
 
   init() {
-    // Clear legacy hardcoded categories/items if present
+    // Ensure Trio Bean categories and items are always loaded
     const existingCats = localStorage.getItem('tb_categories');
-    if (existingCats && existingCats.includes('c1000000-0000-0000-0000-000000000001')) {
-      localStorage.setItem('tb_categories', JSON.stringify([]));
-      localStorage.setItem('tb_menu_items', JSON.stringify([]));
+    if (!existingCats || JSON.parse(existingCats || '[]').length === 0) {
+      localStorage.setItem('tb_categories', JSON.stringify(INITIAL_CATEGORIES));
     }
-    if (!localStorage.getItem('tb_categories')) {
-      localStorage.setItem('tb_categories', JSON.stringify([]));
-    }
-    if (!localStorage.getItem('tb_menu_items')) {
-      localStorage.setItem('tb_menu_items', JSON.stringify([]));
+    const existingItems = localStorage.getItem('tb_menu_items');
+    if (!existingItems || JSON.parse(existingItems || '[]').length === 0) {
+      localStorage.setItem('tb_menu_items', JSON.stringify(INITIAL_MENU_ITEMS));
     }
     if (!localStorage.getItem('tb_tables')) {
       localStorage.setItem('tb_tables', JSON.stringify(INITIAL_TABLES));
@@ -70,7 +68,8 @@ class LocalFallbackStore {
 
   // Categories
   getCategories() {
-    return JSON.parse(localStorage.getItem('tb_categories') || '[]');
+    const cats = JSON.parse(localStorage.getItem('tb_categories') || '[]');
+    return cats.length > 0 ? cats : INITIAL_CATEGORIES;
   }
   saveCategories(categories) {
     localStorage.setItem('tb_categories', JSON.stringify(categories));
@@ -79,7 +78,8 @@ class LocalFallbackStore {
 
   // Menu Items
   getMenuItems() {
-    return JSON.parse(localStorage.getItem('tb_menu_items') || '[]');
+    const items = JSON.parse(localStorage.getItem('tb_menu_items') || '[]');
+    return items.length > 0 ? items : INITIAL_MENU_ITEMS;
   }
   saveMenuItems(items) {
     localStorage.setItem('tb_menu_items', JSON.stringify(items));
