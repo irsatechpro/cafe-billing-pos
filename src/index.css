@@ -1,0 +1,227 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color-scheme: light;
+    background-color: var(--color-bg, #FAF6F0);
+    color: var(--color-text-main, #2C1A14);
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  body {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    background-color: var(--color-bg, #FAF6F0);
+    color: var(--color-text-main, #2C1A14);
+  }
+
+  h1, h2, h3, h4, .font-serif {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+  }
+}
+
+/* ==========================================================================
+   UNIVERSAL DYNAMIC MULTI-TENANT THEME BRIDGE
+   Redirects all hardcoded cafe colors to the live active theme CSS variables!
+   ========================================================================== */
+
+:root {
+  --color-primary: #2C1A14;
+  --color-primary-hover: #3E2723;
+  --color-accent: #C8963E;
+  --color-accent-light: #E5C170;
+  --color-accent-text: #FFFFFF;
+  --color-bg: #FAF6F0;
+  --color-surface: #FDFBF7;
+  --color-border: #EFE6D8;
+  --color-sidebar-bg: #1F120C;
+  --color-sidebar-border: #3E2723;
+  --color-text-main: #2C1A14;
+  --color-text-muted: #6D4C41;
+}
+
+/* Backgrounds */
+.bg-\[\#FAF6F0\],
+.bg-\[\#FDFBF7\] {
+  background-color: var(--color-bg) !important;
+}
+
+.bg-\[\#2C1A14\] {
+  background-color: var(--color-primary) !important;
+}
+
+.bg-\[\#1F120C\] {
+  background-color: var(--color-sidebar-bg) !important;
+}
+
+.bg-\[\#3E2723\] {
+  background-color: var(--color-primary-hover) !important;
+}
+
+.hover\:bg-\[\#3E2723\]:hover {
+  background-color: var(--color-primary-hover) !important;
+}
+
+.hover\:bg-\[\#2C1A14\]:hover {
+  background-color: var(--color-primary) !important;
+}
+
+.bg-\[\#C8963E\] {
+  background-color: var(--color-accent) !important;
+}
+
+.hover\:bg-\[\#C8963E\]:hover {
+  background-color: var(--color-accent-light) !important;
+}
+
+.bg-\[\#F5EFE6\] {
+  background-color: var(--color-border) !important;
+  opacity: 0.9;
+}
+
+/* Text colors */
+.text-\[\#2C1A14\] {
+  color: var(--color-text-main) !important;
+}
+
+.text-\[\#C8963E\] {
+  color: var(--color-accent) !important;
+}
+
+.text-\[\#E5C170\] {
+  color: var(--color-accent-light) !important;
+}
+
+.text-\[\#6D4C41\],
+.text-\[\#5D4037\] {
+  color: var(--color-text-muted) !important;
+}
+
+/* Hover text */
+.hover\:text-\[\#C8963E\]:hover,
+.group-hover\:text-\[\#C8963E\]:hover,
+.group:hover .group-hover\:text-\[\#C8963E\] {
+  color: var(--color-accent) !important;
+}
+
+/* Borders */
+.border-\[\#EFE6D8\] {
+  border-color: var(--color-border) !important;
+}
+
+.border-\[\#3E2723\] {
+  border-color: var(--color-sidebar-border) !important;
+}
+
+.border-\[\#C8963E\] {
+  border-color: var(--color-accent) !important;
+}
+
+/* Customer menu hero banner gradient */
+.from-\[\#2C1A14\] {
+  --tw-gradient-from: var(--color-primary) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(44 26 20 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+.via-\[\#3E2723\] {
+  --tw-gradient-to: rgb(62 39 35 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--color-primary-hover) var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+
+.to-\[\#2C1A14\] {
+  --tw-gradient-to: var(--color-primary) var(--tw-gradient-to-position) !important;
+}
+
+/* Light Parchment Glassmorphism utilities */
+.glass-nav {
+  background: rgba(253, 251, 247, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(200, 150, 62, 0.2);
+}
+
+.glass-card {
+  background: rgba(245, 239, 230, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(200, 150, 62, 0.25);
+  box-shadow: 0 10px 30px -10px rgba(62, 39, 35, 0.08);
+}
+
+.glass-card-hover {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card-hover:hover {
+  background: #FFFFFF;
+  border-color: rgba(200, 150, 62, 0.6);
+  box-shadow: 0 20px 40px -15px rgba(62, 39, 35, 0.15), 0 0 25px rgba(200, 150, 62, 0.12);
+  transform: translateY(-4px);
+}
+
+/* Custom Light Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F5EFE6;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D9CDBC;
+  border-radius: 4px;
+  border: 2px solid #F5EFE6;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #C8963E;
+}
+
+/* Shimmer overlay animation */
+@keyframes shine {
+  100% {
+    left: 125%;
+  }
+}
+
+.shine-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.shine-effect::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -75%;
+  width: 50%;
+  height: 200%;
+  opacity: 0;
+  transform: rotate(30deg);
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 75%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.shine-effect:hover::after {
+  opacity: 1;
+  animation: shine 1s ease-in-out;
+}
+
+/* Noise overlay */
+.grain-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.025'/%3E%3C/svg%3E");
+}
