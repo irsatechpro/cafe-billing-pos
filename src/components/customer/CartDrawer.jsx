@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Plus, Minus, ArrowRight, Coffee, AlertCircle, User, Sparkles } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ArrowRight, Coffee, AlertCircle, User, Sparkles, Utensils } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { placeOrder, getActiveOrderForCustomer } from '../../services/orderService';
 import { useNavigate } from 'react-router-dom';
@@ -9,10 +9,29 @@ export default function CartDrawer({ isOpen, onClose }) {
   const { cartItems, customerName, setCustomerName, activeOrderId, setActiveOrderId, updateQuantity, removeFromCart, clearCart, subtotal } = useCart();
   const [customerPhone, setCustomerPhone] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
+  const [tableNumber, setTableNumber] = useState(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('table') || localStorage.getItem('trio_bean_selected_table') || '1';
+    } catch {
+      return '1';
+    }
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [existingOrder, setExistingOrder] = useState(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tbl = urlParams.get('table');
+    if (tbl) {
+      setTableNumber(tbl);
+      try {
+        localStorage.setItem('trio_bean_selected_table', tbl);
+      } catch {}
+    }
+  }, []);
 
   useEffect(() => {
     const trimmed = (customerName || '').trim();
@@ -24,7 +43,6 @@ export default function CartDrawer({ isOpen, onClose }) {
             setActiveOrderId(ord.id);
           }
         } else {
-          // If no active order exists for this exact customer name, it is a different customer!
           setExistingOrder(null);
           if (activeOrderId) {
             setActiveOrderId(null);
@@ -34,7 +52,7 @@ export default function CartDrawer({ isOpen, onClose }) {
     } else {
       setExistingOrder(null);
     }
-  }, [isOpen, customerName]);
+  }, [isOpen, customerName, activeOrderId, setActiveOrderId]);
 
   if (!isOpen) return null;
 
@@ -49,15 +67,21 @@ export default function CartDrawer({ isOpen, onClose }) {
 
     setIsSubmitting(true);
     try {
+      // Save selected table
+      try {
+        localStorage.setItem('trio_bean_selected_table', tableNumber);
+      } catch {}
+
+      const fullCustomerName = `${customerName.trim()} [Table ${tableNumber}]`;
+
       const createdOrder = await placeOrder({
         activeOrderId: activeOrderId || null,
         cartItems,
-        customerName: customerName.trim(),
+        customerName: fullCustomerName,
         customerPhone: customerPhone.trim(),
         notes: orderNotes.trim()
       });
 
-      // Save active order ID to customer's phone so additional items merge into same order ID!
       if (createdOrder && createdOrder.id) {
         setActiveOrderId(createdOrder.id);
       }
@@ -115,10 +139,10 @@ export default function CartDrawer({ isOpen, onClose }) {
             <div className="bg-[#FAF6F0] px-4 py-2 border-b border-[#EFE6D8] flex items-center justify-between text-xs">
               <span className="font-semibold text-[#6D4C41] flex items-center space-x-1">
                 <Sparkles className="w-3.5 h-3.5 text-[#C8963E]" />
-                <span>ACTIVE SESSION FOR:</span>
+                <span>ORDERING FOR:</span>
               </span>
               <span className="bg-[#2C1A14] text-[#E5C170] px-3 py-0.5 rounded-full font-bold">
-                {customerName}
+                {customerName} • Table {tableNumber}
               </span>
             </div>
           )}
@@ -138,7 +162,7 @@ export default function CartDrawer({ isOpen, onClose }) {
                 <Coffee className="w-16 h-16 mb-3 text-[#C8963E]/40" />
                 <p className="font-serif font-semibold text-lg text-[#2C1A14]">Your cart is empty</p>
                 <p className="text-xs text-[#6D4C41]/80 mt-1 max-w-xs">
-                  Discover our freshly brewed coffee, food, beverages, shakes, and warm desserts.
+                  Discover our freshly brewed coffee, sandwiches, burgers, shakes, and desserts.
                 </p>
               </div>
             ) : (
@@ -215,32 +239,52 @@ export default function CartDrawer({ isOpen, onClose }) {
           {/* Footer & Checkout */}
           {cartItems.length > 0 && (
             <div className="p-4 bg-[#FAF6F0] border-t border-[#EFE6D8] space-y-3 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              {/* Customer Name Input */}
-              <div>
-                <label className="block text-[11px] font-bold text-[#2C1A14] mb-1 flex items-center justify-between">
-                  <span className="flex items-center space-x-1">
-                    <User className="w-3.5 h-3.5 text-[#C8963E]" />
-                    <span>YOUR NAME *</span>
-                  </span>
-                  {customerName && (
-                    <span className="text-[10px] text-emerald-800 font-semibold">Active Session</span>
-                  )}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Enter Your Name (Required)"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full bg-white text-xs px-3.5 py-2.5 rounded-xl border border-[#C8963E] text-[#2C1A14] font-semibold focus:outline-none focus:ring-2 focus:ring-[#C8963E] placeholder-stone-400"
-                />
+              {/* Table & Name Row */}
+              <div className="grid grid-cols-3 gap-2">
+                {/* Table Number Selector */}
+                <div className="col-span-1">
+                  <label className="block text-[11px] font-bold text-[#2C1A14] mb-1 flex items-center space-x-1">
+                    <Utensils className="w-3.5 h-3.5 text-[#C8963E]" />
+                    <span>TABLE *</span>
+                  </label>
+                  <select
+                    value={tableNumber}
+                    onChange={(e) => setTableNumber(e.target.value)}
+                    className="w-full bg-white text-xs px-2.5 py-2.5 rounded-xl border border-[#C8963E] text-[#2C1A14] font-bold focus:outline-none focus:ring-2 focus:ring-[#C8963E]"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map((num) => (
+                      <option key={num} value={String(num)}>
+                        Table {num}
+                      </option>
+                    ))}
+                    <option value="Takeaway">Takeaway</option>
+                  </select>
+                </div>
+
+                {/* Customer Name Input */}
+                <div className="col-span-2">
+                  <label className="block text-[11px] font-bold text-[#2C1A14] mb-1 flex items-center justify-between">
+                    <span className="flex items-center space-x-1">
+                      <User className="w-3.5 h-3.5 text-[#C8963E]" />
+                      <span>YOUR NAME *</span>
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter Your Name"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="w-full bg-white text-xs px-3.5 py-2.5 rounded-xl border border-[#C8963E] text-[#2C1A14] font-semibold focus:outline-none focus:ring-2 focus:ring-[#C8963E] placeholder-stone-400"
+                  />
+                </div>
               </div>
 
               {/* Special Order Notes */}
               <div>
                 <input
                   type="text"
-                  placeholder="Special instructions for kitchen (Optional)"
+                  placeholder="Special cooking notes (e.g. less sugar, extra hot)"
                   value={orderNotes}
                   onChange={(e) => setOrderNotes(e.target.value)}
                   className="w-full bg-white text-xs px-3 py-2 rounded-xl border border-[#EFE6D8] text-[#2C1A14] focus:outline-none focus:ring-1 focus:ring-[#C8963E]"
@@ -257,18 +301,18 @@ export default function CartDrawer({ isOpen, onClose }) {
                   <div className="space-y-1.5 pt-2 border-t border-[#EFE6D8] text-xs">
                     {existingTotal > 0 && (
                       <div className="flex justify-between text-[#6D4C41]">
-                        <span>Previous Order Items ({existingItems.length})</span>
+                        <span>Previous Items ({existingItems.length})</span>
                         <span className="font-semibold text-[#2C1A14]">₹{existingTotal}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-[#6D4C41]">
-                      <span>New Items (This Round)</span>
+                      <span>New Items</span>
                       <span className="font-semibold text-[#2C1A14]">₹{subtotal}</span>
                     </div>
                     <div className="flex justify-between text-[#6D4C41]">
-                      <span>Payment Method</span>
+                      <span>Payment</span>
                       <span className="font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded text-[10px]">
-                        Pay at Cashier Counter
+                        Pay at Counter After Meal
                       </span>
                     </div>
                     <div className="flex justify-between text-[#2C1A14] font-serif font-bold text-base pt-1 border-t border-stone-200">
@@ -279,18 +323,20 @@ export default function CartDrawer({ isOpen, onClose }) {
                 );
               })()}
 
-              {/* Place Order CTA */}
+              {/* Place Order Button */}
               <button
                 onClick={handlePlaceOrder}
                 disabled={isSubmitting}
-                className="w-full py-3.5 px-4 rounded-xl bg-[#2C1A14] text-[#E5C170] hover:bg-[#3E2723] font-bold text-sm flex items-center justify-center space-x-2 shadow-lg active:scale-98 disabled:opacity-50 transition-all"
+                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#2C1A14] to-[#3E2723] hover:from-[#1F120C] hover:to-[#2C1A14] active:scale-[0.99] text-[#FDFBF7] font-bold text-sm flex items-center justify-center space-x-2 transition-all shadow-md shadow-[#2C1A14]/20 disabled:opacity-50"
               >
                 {isSubmitting ? (
-                  <span>Securing your order...</span>
+                  <span>Sending order to kitchen...</span>
                 ) : (
                   <>
-                    <span>{activeOrderId ? 'ADD TO MY EXISTING ORDER' : 'PLACE ORDER NOW'}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <span className="uppercase tracking-wider">
+                      {existingOrder ? 'Add to Current Order' : `Send Order to Kitchen (Table ${tableNumber})`}
+                    </span>
+                    <ArrowRight className="w-4 h-4 text-[#C8963E]" />
                   </>
                 )}
               </button>
