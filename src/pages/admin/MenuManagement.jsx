@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../../components/admin/Sidebar';
-import { getCategories, getMenuItems, updateMenuItem, createMenuItem, deleteMenuItem, uploadMenuImage, createCategory } from '../../services/menuService';
+import { getCategories, getMenuItems, updateMenuItem, createMenuItem, deleteMenuItem, uploadMenuImage, createCategory, deleteCategory } from '../../services/menuService';
 import { useCafe } from '../../context/CafeContext';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Search, Upload, Check, X, Image as ImageIcon, Loader2, FolderPlus } from 'lucide-react';
 
 export default function MenuManagement() {
@@ -105,6 +106,26 @@ export default function MenuManagement() {
       setSelectedCatFilter(created.id);
     } catch (err) {
       alert('Failed to create category: ' + err.message);
+    }
+  };
+
+  const handleDeleteCategory = async (catId, catName) => {
+    if (!window.confirm(`⚠️ Are you sure you want to delete category "${catName}"?\n\nThis will permanently delete this category and all its menu items from the Supabase database!`)) {
+      return;
+    }
+    try {
+      setLoading(true);
+      await deleteCategory(catId);
+      setCategories(prev => prev.filter(c => String(c.id) !== String(catId)));
+      setMenuItems(prev => prev.filter(i => String(i.category_id) !== String(catId)));
+      if (selectedCatFilter === catId) {
+        setSelectedCatFilter('ALL');
+      }
+    } catch (err) {
+      console.error('Failed to delete category:', err);
+      alert('Failed to delete category: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -265,17 +286,35 @@ export default function MenuManagement() {
               All Categories ({menuItems.length})
             </button>
             {categories.map((c) => (
-              <button
+              <div
                 key={c.id}
-                onClick={() => setSelectedCatFilter(c.id)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+                className={`inline-flex items-center rounded-full text-xs font-bold transition-all whitespace-nowrap overflow-hidden border shadow-xs ${
                   selectedCatFilter === c.id
-                    ? 'bg-[#2C1A14] text-[#E5C170]'
-                    : 'bg-white text-[#6D4C41] border border-[#EFE6D8]'
+                    ? 'bg-[#2C1A14] text-[#E5C170] border-[#2C1A14]'
+                    : 'bg-white text-[#6D4C41] border-[#EFE6D8]'
                 }`}
               >
-                {c.name}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCatFilter(c.id)}
+                  className="px-3.5 py-1.5 hover:opacity-90 transition-opacity"
+                >
+                  {c.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteCategory(c.id, c.name);
+                  }}
+                  title={`Delete category "${c.name}"`}
+                  className={`pr-2.5 pl-1 py-1.5 transition-colors hover:text-rose-500 cursor-pointer ${
+                    selectedCatFilter === c.id ? 'text-[#E5C170]/60' : 'text-stone-400'
+                  }`}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
             ))}
             <button
               type="button"
@@ -308,9 +347,8 @@ export default function MenuManagement() {
         {/* Menu Items Table Grid */}
         <div className="p-4 sm:p-6 lg:p-8">
           {loading ? (
-            <div className="py-20 text-center text-[#6D4C41]">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-[#C8963E]" />
-              <p className="font-serif text-sm">Loading Menu Database...</p>
+            <div className="py-20 text-center">
+              <LoadingSpinner message="Loading Menu Categories & Items..." />
             </div>
           ) : filteredItems.length === 0 ? (
             <div className="bg-white rounded-3xl border border-[#EFE6D8] p-12 text-center shadow-sm">

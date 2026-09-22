@@ -1,20 +1,16 @@
 import React, { useState } from 'react';
 import Sidebar from '../../components/admin/Sidebar';
 import { useCafe } from '../../context/CafeContext';
-import { useTheme } from '../../context/ThemeContext';
 import { uploadMenuImage } from '../../services/menuService';
 import { Store, Palette, Upload, Check, Sparkles, Image as ImageIcon, CheckCircle2, RefreshCw, Eye, ExternalLink } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export default function SettingsPage() {
   const { activeCafe, updateCafeSettings, loading } = useCafe();
-  const { currentTheme, setTheme, availableThemes } = useTheme();
 
   const [name, setName] = useState(activeCafe?.name || 'Trio Bean Café');
   const [tagline, setTagline] = useState(activeCafe?.tagline || 'Fresh • Tasty • Made Daily');
   const [logoUrl, setLogoUrl] = useState(activeCafe?.logo_url || '');
-  const [selectedThemeId, setSelectedThemeId] = useState(activeCafe?.theme || currentTheme || 'coffee');
-  const [activeThemeCategory, setActiveThemeCategory] = useState('All');
 
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(activeCafe?.logo_url || '');
@@ -27,12 +23,6 @@ export default function SettingsPage() {
       setLogoFile(file);
       setLogoPreview(URL.createObjectURL(file));
     }
-  };
-
-  const handleThemeSelect = (themeId) => {
-    setSelectedThemeId(themeId);
-    // Instant live preview of the theme!
-    setTheme(themeId);
   };
 
   const handleSaveSettings = async (e) => {
@@ -50,7 +40,7 @@ export default function SettingsPage() {
         name: name.trim(),
         tagline: tagline.trim(),
         logo_url: finalLogoUrl,
-        theme: selectedThemeId
+        theme: 'coffee' // Fixed permanent Trio Bean branding
       });
 
       // Confetti celebration
@@ -200,83 +190,58 @@ export default function SettingsPage() {
             </div>
           </div>
 
-            {/* Section 2: Dynamic Website Color Theme */}
-            <div className="bg-white rounded-3xl p-6 border border-[var(--color-border,#EFE6D8)] shadow-xs space-y-5">
-              <div className="border-b border-[var(--color-border,#EFE6D8)] pb-3 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center space-x-2.5">
-                  <Palette className="w-5 h-5 text-[var(--color-accent,#C8963E)]" />
+            {/* Section 2: Permanent Trio Bean Signature Brand Palette */}
+            <div className="bg-white rounded-3xl p-6 border border-[#EFE6D8] shadow-xs space-y-5">
+              <div className="border-b border-[#EFE6D8] pb-3 flex items-center space-x-2.5">
+                <Palette className="w-5 h-5 text-[#C8963E]" />
+                <div>
+                  <h2 className="font-serif font-bold text-lg text-stone-900">
+                    Trio Bean Signature Brand Palette
+                  </h2>
+                  <p className="text-xs text-stone-500">
+                    Locked to Trio Bean authentic luxury aesthetic: Deep Espresso, Warm Crema Gold, and Linen White.
+                  </p>
+                </div>
+              </div>
+
+              {/* Trio Bean Brand Colors Display */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-2xl bg-[#2C1A14] text-[#FAF6F0] flex items-center space-x-3.5 shadow-sm">
+                  <div className="w-10 h-10 rounded-xl bg-black/20 border border-white/10 flex items-center justify-center font-bold text-xs">
+                    #2C1A14
+                  </div>
                   <div>
-                    <h2 className="font-serif font-bold text-lg text-stone-900">
-                      Website Color Theme (6 Brand Styles)
-                    </h2>
-                    <p className="text-xs text-stone-500">
-                      Choose your cafe's style. Trio Bean Classic is default, plus 2 Yellowish variations for yellow cafes, Green, Red, and Navy!
-                    </p>
+                    <span className="font-serif font-bold text-sm block">Deep Espresso</span>
+                    <span className="text-[10px] text-[#E5C170] uppercase tracking-wider font-mono">Primary Background & Text</span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-[#C8963E] text-[#2C1A14] flex items-center space-x-3.5 shadow-sm">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 border border-black/10 flex items-center justify-center font-bold text-xs">
+                    #C8963E
+                  </div>
+                  <div>
+                    <span className="font-serif font-bold text-sm block">Golden Crema</span>
+                    <span className="text-[10px] text-[#2C1A14] uppercase tracking-wider font-mono font-bold">Accent & Highlights</span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-[#FAF6F0] border border-[#EFE6D8] text-[#2C1A14] flex items-center space-x-3.5 shadow-sm">
+                  <div className="w-10 h-10 rounded-xl bg-white border border-[#EFE6D8] flex items-center justify-center font-bold text-xs">
+                    #FAF6F0
+                  </div>
+                  <div>
+                    <span className="font-serif font-bold text-sm block">Warm Linen</span>
+                    <span className="text-[10px] text-[#6D4C41] uppercase tracking-wider font-mono">Card Surfaces & Pages</span>
                   </div>
                 </div>
               </div>
 
-              {/* 6 Clean Theme Cards Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {availableThemes.map((theme) => {
-                  const isSelected = selectedThemeId === theme.id;
-                  const isDefaultTrio = theme.id === 'coffee';
-                  const isYellow = theme.id.startsWith('yellow_');
-                  return (
-                    <div
-                      key={theme.id}
-                      onClick={() => handleThemeSelect(theme.id)}
-                      className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative flex flex-col justify-between ${
-                        isSelected
-                          ? 'border-[var(--color-accent,#C8963E)] shadow-md bg-[var(--color-bg,#FAF6F0)]/40 scale-[1.02]'
-                          : 'border-[var(--color-border,#EFE6D8)] hover:border-stone-400/50 bg-white'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-xs text-stone-900">
-                            {theme.name}
-                          </span>
-                          {isSelected && (
-                            <div className="w-5 h-5 rounded-full bg-[var(--color-accent,#C8963E)] text-white flex items-center justify-center">
-                              <Check className="w-3 h-3 stroke-[3]" />
-                            </div>
-                          )}
-                        </div>
-
-                        {isDefaultTrio && (
-                          <span className="inline-block bg-[#FAF6F0] text-[#C8963E] border border-[#EFE6D8] text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider mb-1.5">
-                            ☕ Original Trio Bean
-                          </span>
-                        )}
-
-                        {isYellow && (
-                          <span className="inline-block bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider mb-1.5">
-                            ⭐ Yellow Cafe Theme
-                          </span>
-                        )}
-
-                        <p className="text-[11px] text-stone-500 leading-relaxed mb-3">
-                          {theme.description}
-                        </p>
-                      </div>
-
-                      {/* Color Swatch Dots */}
-                      <div className="flex items-center space-x-1.5 pt-2 border-t border-stone-100">
-                        {theme.previewColors.map((color, idx) => (
-                          <div
-                            key={idx}
-                            className="w-5 h-5 rounded-full border border-black/10 shadow-xs"
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                        <span className="text-[10px] font-mono text-stone-400 pl-2">
-                          {isSelected ? 'Selected' : 'Click to apply'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/60 flex items-center space-x-2 text-xs text-amber-900">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>
+                  <strong>Active Brand Identity:</strong> Trio Bean Café styling is applied uniformly across customer QR menus, cashier POS, and kitchen live orders.
+                </span>
               </div>
             </div>
 

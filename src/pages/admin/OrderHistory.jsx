@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../../components/admin/Sidebar';
 import { getActiveOrders, deleteOrder, deleteAllOrders } from '../../services/orderService';
 import { getPayments } from '../../services/paymentService';
-import { Receipt, Search, Filter, Calendar, CheckCircle2, Loader2, DollarSign, Trash2 } from 'lucide-react';
+import { Receipt, Search, Filter, Calendar, CheckCircle2, DollarSign, Trash2 } from 'lucide-react';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
 export default function OrderHistory() {
   const [orders, setOrders] = useState([]);
@@ -134,9 +135,8 @@ export default function OrderHistory() {
         {/* History Table */}
         <div className="p-4 sm:p-6 lg:p-8">
           {loading ? (
-            <div className="py-20 text-center text-[#6D4C41]">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-[#C8963E]" />
-              <p className="font-serif text-sm">Loading Order History...</p>
+            <div className="py-20 flex items-center justify-center">
+              <LoadingSpinner message="Loading Trio Bean Order History..." />
             </div>
           ) : (
             <div className="bg-white rounded-3xl border border-[#EFE6D8] shadow-sm overflow-x-auto">

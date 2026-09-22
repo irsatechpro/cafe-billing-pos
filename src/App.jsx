@@ -4,6 +4,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { CafeProvider } from './context/CafeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { PageLoader } from './components/common/LoadingSpinner';
 
 // Customer Pages
 import CustomerMenu from './pages/CustomerMenu';
@@ -21,11 +22,7 @@ import SettingsPage from './pages/admin/SettingsPage';
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg,#FAF6F0)] font-serif text-sm">
-        Verifying secure session...
-      </div>
-    );
+    return <PageLoader message="Verifying secure Trio Bean session..." />;
   }
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -41,16 +38,16 @@ export default function App() {
           <CartProvider>
             <Router>
               <Routes>
-                {/* Customer Routes */}
-                <Route path="/" element={<CustomerMenu />} />
+                {/* Landing Page: Set directly to Sign-In Page */}
+                <Route path="/" element={<AuthPage />} />
+                <Route path="/login" element={<AuthPage />} />
+                <Route path="/register" element={<Navigate to="/" replace />} />
+
+                {/* Customer Digital QR Menu Routes */}
                 <Route path="/menu" element={<CustomerMenu />} />
                 <Route path="/order/:orderId" element={<OrderStatusPage />} />
 
-                {/* Authentication Route */}
-                <Route path="/login" element={<AuthPage />} />
-                <Route path="/register" element={<Navigate to="/login" replace />} />
-
-                {/* Protected Staff & Admin Routes */}
+                {/* Protected Staff & POS Admin Routes */}
                 <Route path="/cafe" element={<Navigate to="/admin/cafe" replace />} />
                 <Route path="/admin" element={<Navigate to="/admin/cafe" replace />} />
                 <Route path="/admin/cafe" element={<ProtectedRoute><CafeDashboard /></ProtectedRoute>} />
@@ -61,7 +58,7 @@ export default function App() {
                 <Route path="/admin/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
 
                 {/* Catch-all fallback */}
-                <Route path="*" element={<Navigate to="/menu" replace />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Router>
           </CartProvider>

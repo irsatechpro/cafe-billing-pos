@@ -4,6 +4,7 @@ import PaymentModal from '../../components/admin/PaymentModal';
 import { useRealtimeOrders } from '../../hooks/useRealtimeOrders';
 import { updateOrderStatus, deleteAllOrders, deleteOrder } from '../../services/orderService';
 import { Bell, Check, Clock, Utensils, AlertCircle, RefreshCw, ChevronRight, DollarSign, User, Sparkles, Trash2, CheckCircle2 } from 'lucide-react';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
 export default function CafeDashboard() {
   const { orders, loading, refetch, hasNewOrderAlert, clearNewOrderAlert } = useRealtimeOrders();
@@ -191,9 +192,8 @@ export default function CafeDashboard() {
         {/* Live Orders Grid */}
         <div className="p-4 sm:p-6 lg:p-8 flex-1">
           {loading ? (
-            <div className="py-20 text-center text-[#6D4C41]">
-              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-[#C8963E]" />
-              <p className="font-serif text-sm">Syncing orders with database...</p>
+            <div className="py-20 flex items-center justify-center">
+              <LoadingSpinner message="Syncing live orders with Supabase..." />
             </div>
           ) : filteredOrders.length === 0 ? (
             <div className="bg-white p-12 rounded-3xl border border-[#EFE6D8] text-center max-w-md mx-auto my-12 shadow-xs">

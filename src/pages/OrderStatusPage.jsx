@@ -4,6 +4,7 @@ import { getOrderById } from '../services/orderService';
 import { useCart } from '../context/CartContext';
 import { CheckCircle2, Clock, Coffee, ArrowLeft, RefreshCw, Sparkles, Utensils } from 'lucide-react';
 import { supabase, isLiveSupabaseConfigured, localStore } from '../lib/supabase';
+import { LoadingSpinner } from '../components/common/LoadingSpinner';
 
 export default function OrderStatusPage() {
   const { orderId } = useParams();
@@ -61,11 +62,8 @@ export default function OrderStatusPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center text-[#2C1A14] p-4">
-        <div className="flex flex-col items-center space-y-3">
-          <Coffee className="w-10 h-10 text-[#C8963E] animate-bounce" />
-          <span className="font-serif font-semibold text-sm">Loading order status...</span>
-        </div>
+      <div className="min-h-screen bg-[#FAF6F0] flex items-center justify-center text-[#2C1A14] p-4">
+        <LoadingSpinner message="Loading order status..." />
       </div>
     );
   }
