@@ -112,6 +112,15 @@ class LocalFallbackStore {
     localStorage.setItem('tb_payments', JSON.stringify(payments));
     this.notify('payments_updated', payments);
   }
+
+  // Expenses
+  getExpenses() {
+    return JSON.parse(localStorage.getItem('tb_expenses') || '[]');
+  }
+  saveExpenses(expenses) {
+    localStorage.setItem('tb_expenses', JSON.stringify(expenses));
+    this.notify('expenses_updated', expenses);
+  }
 }
 
 export const localStore = new LocalFallbackStore();

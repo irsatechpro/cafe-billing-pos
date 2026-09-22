@@ -12,7 +12,7 @@ export default function Sidebar() {
 
   const navItems = [
     { to: '/admin/cafe', label: 'Cafe Live Orders', icon: UtensilsCrossed, badge: 'Realtime' },
-    { to: '/admin/dashboard', label: 'Sales Dashboard', icon: LayoutDashboard },
+    { to: '/admin/dashboard', label: 'Sales & Expenses', icon: LayoutDashboard },
     { to: '/admin/menu', label: 'Menu Management', icon: BookOpen },
     { to: '/admin/tables', label: 'Cafe QR Code', icon: QrCode },
     { to: '/admin/orders/history', label: 'Order History', icon: Receipt },
