@@ -442,193 +442,185 @@ export default function AdminDashboard() {
             {activeTab === 'SALES' && (
               <div className="space-y-6">
 
-                {/* Filter Controls: Choose Single Day vs Month */}
-                <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#EFE6D8] shadow-xs flex flex-wrap items-center justify-between gap-4">
-                  
-                  {/* View Mode Toggle: Day vs Month */}
-                  <div className="flex items-center space-x-2 bg-[#FAF6F0] p-1.5 rounded-2xl border border-[#EFE6D8]">
+                {/* Simple & Easy Filter Controls */}
+                <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#EFE6D8] shadow-xs flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Today Button */}
                     <button
-                      onClick={() => setSalesViewMode('DAY')}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                        salesViewMode === 'DAY'
+                      onClick={() => {
+                        setSelectedDate(getTodayString());
+                        setSalesViewMode('DAY');
+                      }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                        salesViewMode === 'DAY' && selectedDate === getTodayString()
                           ? 'bg-[#2C1A14] text-[#E5C170] shadow-sm'
-                          : 'text-[#6D4C41] hover:text-[#2C1A14]'
+                          : 'bg-[#FAF6F0] text-[#2C1A14] hover:bg-[#EFE6D8] border border-[#EFE6D8]'
                       }`}
                     >
-                      📅 Select Single Day
+                      <span>☀️ Today's Sales</span>
                     </button>
+
+                    {/* Yesterday Button */}
                     <button
-                      onClick={() => setSalesViewMode('MONTH')}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                        salesViewMode === 'MONTH'
+                      onClick={() => {
+                        setSelectedDate(getYesterdayString());
+                        setSalesViewMode('DAY');
+                      }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                        salesViewMode === 'DAY' && selectedDate === getYesterdayString()
                           ? 'bg-[#2C1A14] text-[#E5C170] shadow-sm'
-                          : 'text-[#6D4C41] hover:text-[#2C1A14]'
+                          : 'bg-[#FAF6F0] text-[#2C1A14] hover:bg-[#EFE6D8] border border-[#EFE6D8]'
                       }`}
                     >
-                      🗓️ Select Month
+                      <span>⏱️ Yesterday's Sales</span>
                     </button>
-                  </div>
 
-                  {/* Dynamic Date / Month Pickers */}
-                  {salesViewMode === 'DAY' ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={() => shiftDay(-1)}
-                        className="p-2 rounded-xl bg-[#FAF6F0] hover:bg-[#EFE6D8] text-[#2C1A14] border border-[#EFE6D8]"
-                        title="Previous Day"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-
+                    {/* Select Any Date */}
+                    <div className="flex items-center space-x-1 bg-[#FAF6F0] border border-[#EFE6D8] px-3 py-1 rounded-xl">
+                      <span className="text-[11px] font-bold text-[#6D4C41]">📅 Any Date:</span>
                       <input
                         type="date"
                         value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="bg-[#FAF6F0] border border-[#C8963E] text-[#2C1A14] font-bold text-xs px-3.5 py-2 rounded-xl focus:outline-none"
+                        onChange={(e) => {
+                          setSelectedDate(e.target.value);
+                          setSalesViewMode('DAY');
+                        }}
+                        className="bg-transparent text-[#2C1A14] font-bold text-xs p-1 focus:outline-none cursor-pointer"
                       />
-
-                      <button
-                        onClick={() => shiftDay(1)}
-                        className="p-2 rounded-xl bg-[#FAF6F0] hover:bg-[#EFE6D8] text-[#2C1A14] border border-[#EFE6D8]"
-                        title="Next Day"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        onClick={() => setSelectedDate(getTodayString())}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
-                          selectedDate === getTodayString()
-                            ? 'bg-[#2C1A14] text-[#E5C170] border-[#2C1A14]'
-                            : 'bg-white text-[#2C1A14] border-[#EFE6D8] hover:bg-[#FAF6F0]'
-                        }`}
-                      >
-                        Today
-                      </button>
-
-                      <button
-                        onClick={() => setSelectedDate(getYesterdayString())}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
-                          selectedDate === getYesterdayString()
-                            ? 'bg-[#2C1A14] text-[#E5C170] border-[#2C1A14]'
-                            : 'bg-white text-[#2C1A14] border-[#EFE6D8] hover:bg-[#FAF6F0]'
-                        }`}
-                      >
-                        Yesterday
-                      </button>
                     </div>
-                  ) : (
-                    <div className="flex items-center space-x-3">
-                      <span className="text-xs font-bold text-[#6D4C41]">Select Month:</span>
+
+                    {/* Select Any Month */}
+                    <div className="flex items-center space-x-1 bg-[#FAF6F0] border border-[#EFE6D8] px-3 py-1 rounded-xl">
+                      <span className="text-[11px] font-bold text-[#6D4C41]">🗓️ Month:</span>
                       <input
                         type="month"
                         value={selectedMonth}
-                        onChange={(e) => setSelectedMonth(e.target.value)}
-                        className="bg-[#FAF6F0] border border-[#C8963E] text-[#2C1A14] font-bold text-xs px-3.5 py-2 rounded-xl focus:outline-none"
+                        onChange={(e) => {
+                          setSelectedMonth(e.target.value);
+                          setSalesViewMode('MONTH');
+                        }}
+                        className="bg-transparent text-[#2C1A14] font-bold text-xs p-1 focus:outline-none cursor-pointer"
                       />
-                      <button
-                        onClick={() => setSelectedMonth(getThisMonthString())}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
-                          selectedMonth === getThisMonthString()
-                            ? 'bg-[#2C1A14] text-[#E5C170] border-[#2C1A14]'
-                            : 'bg-white text-[#2C1A14] border-[#EFE6D8] hover:bg-[#FAF6F0]'
-                        }`}
-                      >
-                        This Month
-                      </button>
                     </div>
-                  )}
+                  </div>
 
-                </div>
-
-                {/* Subtitle Banner Indicating Current Selection */}
-                <div className="flex items-center justify-between text-xs px-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-[#6D4C41] uppercase tracking-wider font-mono">
-                      {salesViewMode === 'DAY' ? 'DAILY SALES FOR:' : 'MONTHLY SALES FOR:'}
-                    </span>
-                    <span className="font-serif font-extrabold text-base text-[#2C1A14]">
+                  {/* Active view indicator */}
+                  <div className="text-xs">
+                    <span className="text-stone-500 font-medium mr-1.5">Viewing:</span>
+                    <span className="font-bold text-[#2C1A14] bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/60">
                       {salesViewMode === 'DAY'
-                        ? formatReadableDate(selectedDate)
-                        : formatReadableMonth(selectedMonth)}
+                        ? selectedDate === getTodayString()
+                          ? `Today (${formatReadableDate(selectedDate)})`
+                          : formatReadableDate(selectedDate)
+                        : `Month of ${formatReadableMonth(selectedMonth)}`}
                     </span>
                   </div>
                 </div>
 
                 {/* =================================================================== */}
-                {/* THE 4 PRIMARY METRIC CARDS (SALES, TOTAL ORDER, CASH, UPI)          */}
+                {/* 5 PRIMARY METRIC CARDS (TODAY SALES, TODAY ORDERS, TOTAL ORDERS, CASH, UPI) */}
                 {/* =================================================================== */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   
-                  {/* Card 1: Total Sales */}
+                  {/* Card 1: Today / Selected Sales */}
                   <div className="bg-white p-5 rounded-3xl border border-[#EFE6D8] shadow-xs relative overflow-hidden">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-bold text-[#6D4C41] uppercase tracking-wider font-mono">
-                        {salesViewMode === 'DAY' ? "THAT DAY'S SALES" : "MONTH'S TOTAL SALES"}
+                        {salesViewMode === 'DAY'
+                          ? selectedDate === getTodayString()
+                            ? "TODAY'S TOTAL SALES"
+                            : `SALES (${formatReadableDate(selectedDate).toUpperCase()})`
+                          : `${formatReadableMonth(selectedMonth).toUpperCase()} SALES`}
                       </span>
                       <div className="w-8 h-8 rounded-full bg-[#FAF6F0] text-[#C8963E] flex items-center justify-center">
                         <TrendingUp className="w-4 h-4" />
                       </div>
                     </div>
-                    <div className="font-serif font-extrabold text-3xl text-[#2C1A14]">
+                    <div className="font-serif font-extrabold text-2xl sm:text-3xl text-[#2C1A14]">
                       ₹{(salesViewMode === 'DAY' ? dayTotalSales : monthTotalSales).toLocaleString('en-IN')}
                     </div>
                     <span className="text-[11px] text-emerald-700 font-semibold mt-2 block">
-                      {salesViewMode === 'DAY' ? `On ${selectedDate}` : `For ${selectedMonth}`}
+                      {salesViewMode === 'DAY'
+                        ? selectedDate === getTodayString()
+                          ? "Live revenue today"
+                          : `Total on ${selectedDate}`
+                        : `Total for ${selectedMonth}`}
                     </span>
                   </div>
 
-                  {/* Card 2: Total Orders */}
+                  {/* Card 2: Today / Selected Orders */}
                   <div className="bg-white p-5 rounded-3xl border border-[#EFE6D8] shadow-xs">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-bold text-[#6D4C41] uppercase tracking-wider font-mono">
-                        {salesViewMode === 'DAY' ? "THAT DAY'S ORDERS" : "MONTH'S TOTAL ORDERS"}
+                        {salesViewMode === 'DAY'
+                          ? selectedDate === getTodayString()
+                            ? "TODAY'S ORDERS"
+                            : `ORDERS (${formatReadableDate(selectedDate).toUpperCase()})`
+                          : `${formatReadableMonth(selectedMonth).toUpperCase()} ORDERS`}
                       </span>
                       <div className="w-8 h-8 rounded-full bg-[#FAF6F0] text-[#2C1A14] flex items-center justify-center">
                         <ShoppingBag className="w-4 h-4" />
                       </div>
                     </div>
-                    <div className="font-serif font-extrabold text-3xl text-[#2C1A14]">
+                    <div className="font-serif font-extrabold text-2xl sm:text-3xl text-[#2C1A14]">
                       {salesViewMode === 'DAY' ? dayTotalOrders : monthTotalOrders}
                     </div>
                     <span className="text-[11px] text-stone-500 font-medium mt-2 block">
-                      Completed cafe orders
+                      {salesViewMode === 'DAY' ? "Orders placed on date" : "Orders in this month"}
                     </span>
                   </div>
 
-                  {/* Card 3: Cash Sales */}
+                  {/* Card 3: Total Orders (All Time) */}
                   <div className="bg-white p-5 rounded-3xl border border-[#EFE6D8] shadow-xs">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-bold text-[#6D4C41] uppercase tracking-wider font-mono">
-                        {salesViewMode === 'DAY' ? "THAT DAY'S CASH" : "MONTH'S CASH SALES"}
+                        TOTAL ORDERS
+                      </span>
+                      <div className="w-8 h-8 rounded-full bg-[#FAF6F0] text-[#C8963E] flex items-center justify-center">
+                        <Receipt className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div className="font-serif font-extrabold text-2xl sm:text-3xl text-[#2C1A14]">
+                      {orders.length}
+                    </div>
+                    <span className="text-[11px] text-emerald-700 font-semibold mt-2 block">
+                      All-time cafe total
+                    </span>
+                  </div>
+
+                  {/* Card 4: Cash Sales */}
+                  <div className="bg-white p-5 rounded-3xl border border-[#EFE6D8] shadow-xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-bold text-[#6D4C41] uppercase tracking-wider font-mono">
+                        CASH SALES
                       </span>
                       <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center">
                         <Banknote className="w-4 h-4" />
                       </div>
                     </div>
-                    <div className="font-serif font-extrabold text-3xl text-emerald-800">
+                    <div className="font-serif font-extrabold text-2xl sm:text-3xl text-emerald-800">
                       ₹{(salesViewMode === 'DAY' ? dayCashSales : monthCashSales).toLocaleString('en-IN')}
                     </div>
                     <span className="text-[11px] text-stone-500 font-medium mt-2 block">
-                      Cash in register
+                      Cash in counter
                     </span>
                   </div>
 
-                  {/* Card 4: UPI Sales */}
+                  {/* Card 5: UPI Sales */}
                   <div className="bg-white p-5 rounded-3xl border border-[#EFE6D8] shadow-xs">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-bold text-[#6D4C41] uppercase tracking-wider font-mono">
-                        {salesViewMode === 'DAY' ? "THAT DAY'S UPI" : "MONTH'S UPI SALES"}
+                        UPI SALES
                       </span>
                       <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center">
                         <QrCode className="w-4 h-4" />
                       </div>
                     </div>
-                    <div className="font-serif font-extrabold text-3xl text-blue-800">
+                    <div className="font-serif font-extrabold text-2xl sm:text-3xl text-blue-800">
                       ₹{(salesViewMode === 'DAY' ? dayUpiSales : monthUpiSales).toLocaleString('en-IN')}
                     </div>
                     <span className="text-[11px] text-stone-500 font-medium mt-2 block">
-                      Bank / QR receipts
+                      QR / Bank UPI
                     </span>
                   </div>
 
