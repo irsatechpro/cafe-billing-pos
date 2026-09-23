@@ -1,25 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../../components/admin/Sidebar';
 import { QRCodeCanvas } from 'qrcode.react';
-import { Download, Printer, Coffee, ExternalLink, Smartphone, Check } from 'lucide-react';
+import { Download, Printer, Coffee, ExternalLink, Smartphone } from 'lucide-react';
 import { useCafe } from '../../context/CafeContext';
 
 export default function TableManagement() {
   const { activeCafe } = useCafe();
-  const [selectedTable, setSelectedTable] = useState('All'); // 'All', '1', '2', '3', etc.
   const [targetUrl, setTargetUrl] = useState('');
-
-  const tables = ['All', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
   useEffect(() => {
     const origin = window.location.origin;
     const cafeQuery = activeCafe?.slug ? `cafe=${activeCafe.slug}` : '';
-    const tableQuery = selectedTable !== 'All' ? `table=${selectedTable}` : '';
-
-    const queryParams = [cafeQuery, tableQuery].filter(Boolean).join('&');
-    const fullUrl = `${origin}/menu${queryParams ? `?${queryParams}` : ''}`;
+    const fullUrl = `${origin}/menu${cafeQuery ? `?${cafeQuery}` : ''}`;
     setTargetUrl(fullUrl);
-  }, [activeCafe?.slug, selectedTable]);
+  }, [activeCafe?.slug]);
 
   const downloadQrCode = () => {
     const canvas = document.getElementById('main-cafe-qr-canvas');
@@ -27,8 +21,7 @@ export default function TableManagement() {
     const pngUrl = canvas.toDataURL('image/png').replace('image/png', 'image/octet-stream');
     const downloadLink = document.createElement('a');
     downloadLink.href = pngUrl;
-    const tableSuffix = selectedTable !== 'All' ? `_table_${selectedTable}` : '';
-    downloadLink.download = `${activeCafe?.slug || 'trio_bean'}${tableSuffix}_qr.png`;
+    downloadLink.download = `${activeCafe?.slug || 'trio_bean'}_qr.png`;
     document.body.appendChild(downloadLink);
     downloadLink.click();
     document.body.removeChild(downloadLink);
@@ -44,7 +37,6 @@ export default function TableManagement() {
     const logoImg = cafeLogo
       ? `<img src="${cafeLogo}" style="max-height:60px;margin-bottom:12px;display:inline-block;border-radius:12px;" />`
       : '';
-    const tableHeader = selectedTable !== 'All' ? `<div class="table-badge">TABLE ${selectedTable}</div>` : '';
 
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
@@ -57,7 +49,6 @@ export default function TableManagement() {
             .card { border: 4px solid #C8963E; border-radius: 32px; padding: 40px 32px; display: inline-block; background: white; box-shadow: 0 15px 40px rgba(44,26,20,0.12); max-width: 400px; width: 100%; box-sizing: border-box; }
             h1 { margin: 6px 0 0 0; font-size: 26px; color: #2C1A14; letter-spacing: 2px; font-weight: 900; font-family: Georgia, serif; }
             .sub { font-size: 11px; color: #C8963E; margin-top: 6px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
-            .table-badge { display: inline-block; background: #2C1A14; color: #E5C170; font-weight: 800; font-size: 13px; padding: 4px 16px; border-radius: 9999px; margin-top: 14px; letter-spacing: 1.5px; }
             img.qr { margin: 22px auto 14px; border: 4px solid #FAF6F0; border-radius: 20px; box-shadow: 0 6px 20px rgba(44,26,20,0.08); display: block; }
             p.instructions { font-size: 13px; color: #2C1A14; font-weight: 800; margin-top: 14px; letter-spacing: 1px; text-transform: uppercase; }
             p.helper { font-size: 12px; color: #6D4C41; margin-top: 6px; line-height: 1.4; }
@@ -69,10 +60,9 @@ export default function TableManagement() {
             ${logoImg}
             <h1>${cafeName.toUpperCase()}</h1>
             <div class="sub">${cafeTagline}</div>
-            ${tableHeader}
             <img class="qr" src="${dataUrl}" width="220" height="220" />
             <p class="instructions">Scan to View Menu & Order</p>
-            <p class="helper">Point your phone camera at the QR code to browse our full menu and place orders directly from your table.</p>
+            <p class="helper">Point your phone camera at the QR code to browse our full menu and place orders.</p>
             <div class="footer">TRIO BEAN DIGITAL DINING SYSTEM</div>
           </div>
           <script>
@@ -113,31 +103,6 @@ export default function TableManagement() {
         </header>
 
         <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto w-full flex flex-col items-center space-y-6">
-          
-          {/* Table Selector Tabs */}
-          <div className="w-full bg-white rounded-3xl p-4 border border-[#EFE6D8] shadow-xs">
-            <span className="text-[10px] font-bold text-[#6D4C41] uppercase tracking-wider block mb-2 font-mono">
-              Select Table / Stand Mode:
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {tables.map((t) => {
-                const isSelected = selectedTable === t;
-                return (
-                  <button
-                    key={t}
-                    onClick={() => setSelectedTable(t)}
-                    className={`px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all ${
-                      isSelected
-                        ? 'bg-[#2C1A14] text-[#E5C170] shadow-md scale-105'
-                        : 'bg-[#FAF6F0] text-[#2C1A14] hover:bg-[#EFE6D8] border border-[#EFE6D8]'
-                    }`}
-                  >
-                    {t === 'All' ? 'General Menu' : `Table ${t}`}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Centered Luxury Trio Bean QR Stand Card */}
           <div className="w-full bg-white rounded-3xl p-6 sm:p-8 border border-[#EFE6D8] shadow-lg flex flex-col items-center text-center space-y-6">
@@ -164,12 +129,6 @@ export default function TableManagement() {
                   {activeCafe?.tagline || 'FRESH • TASTY • MADE DAILY'}
                 </p>
               </div>
-
-              {selectedTable !== 'All' && (
-                <span className="px-4 py-1 rounded-full bg-[#2C1A14] text-[#E5C170] font-bold text-xs tracking-wider uppercase shadow-xs">
-                  Table {selectedTable}
-                </span>
-              )}
             </div>
 
             {/* High-Contrast, Geometrically Centered QR Code Box */}

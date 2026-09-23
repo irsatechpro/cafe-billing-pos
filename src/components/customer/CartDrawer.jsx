@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Plus, Minus, ArrowRight, Coffee, AlertCircle, User, Sparkles, Utensils } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ArrowRight, Coffee, AlertCircle, User, Sparkles } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { placeOrder, getActiveOrderForCustomer } from '../../services/orderService';
 import { useNavigate } from 'react-router-dom';
@@ -9,29 +9,10 @@ export default function CartDrawer({ isOpen, onClose }) {
   const { cartItems, customerName, setCustomerName, activeOrderId, setActiveOrderId, updateQuantity, removeFromCart, clearCart, subtotal } = useCart();
   const [customerPhone, setCustomerPhone] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
-  const [tableNumber, setTableNumber] = useState(() => {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get('table') || localStorage.getItem('trio_bean_selected_table') || '1';
-    } catch {
-      return '1';
-    }
-  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [existingOrder, setExistingOrder] = useState(null);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const tbl = urlParams.get('table');
-    if (tbl) {
-      setTableNumber(tbl);
-      try {
-        localStorage.setItem('trio_bean_selected_table', tbl);
-      } catch {}
-    }
-  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -45,18 +26,11 @@ export default function CartDrawer({ isOpen, onClose }) {
         if (activeOrderId !== ord.id) {
           setActiveOrderId(ord.id);
         }
-        // Auto-extract customer name and table if not already set
-        if (ord.customer_name) {
-          const match = ord.customer_name.match(/^(.*?)(?:\s*\[Table\s*([^\]]+)\])?$/i);
-          if (match) {
-            const parsedName = match[1].trim();
-            const parsedTable = match[2]?.trim();
-            if (parsedName && !customerName) {
-              setCustomerName(parsedName);
-            }
-            if (parsedTable) {
-              setTableNumber(parsedTable);
-            }
+        // Auto-extract customer name if not already set
+        if (ord.customer_name && !customerName) {
+          const cleanName = ord.customer_name.replace(/\[.*?\]/g, '').trim();
+          if (cleanName) {
+            setCustomerName(cleanName);
           }
         }
       } else {
@@ -80,12 +54,7 @@ export default function CartDrawer({ isOpen, onClose }) {
 
     setIsSubmitting(true);
     try {
-      // Save selected table
-      try {
-        localStorage.setItem('trio_bean_selected_table', tableNumber);
-      } catch {}
-
-      const fullCustomerName = `${customerName.trim()} [Table ${tableNumber}]`;
+      const fullCustomerName = customerName.trim();
       const targetOrderId = existingOrder?.id || activeOrderId || localStorage.getItem('trio_bean_active_order_id') || null;
 
       const createdOrder = await placeOrder({
@@ -159,7 +128,7 @@ export default function CartDrawer({ isOpen, onClose }) {
                 <span>ORDERING FOR:</span>
               </span>
               <span className="bg-[#2C1A14] text-[#E5C170] px-3 py-0.5 rounded-full font-bold">
-                {customerName} • Table {tableNumber}
+                {customerName}
               </span>
             </div>
           )}
@@ -271,45 +240,20 @@ export default function CartDrawer({ isOpen, onClose }) {
           {/* Footer & Checkout */}
           {cartItems.length > 0 && (
             <div className="p-4 bg-[#FAF6F0] border-t border-[#EFE6D8] space-y-3 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              {/* Table & Name Row */}
-              <div className="grid grid-cols-3 gap-2">
-                {/* Table Number Selector */}
-                <div className="col-span-1">
-                  <label className="block text-[11px] font-bold text-[#2C1A14] mb-1 flex items-center space-x-1">
-                    <Utensils className="w-3.5 h-3.5 text-[#C8963E]" />
-                    <span>TABLE *</span>
-                  </label>
-                  <select
-                    value={tableNumber}
-                    onChange={(e) => setTableNumber(e.target.value)}
-                    className="w-full bg-white text-xs px-2.5 py-2.5 rounded-xl border border-[#C8963E] text-[#2C1A14] font-bold focus:outline-none focus:ring-2 focus:ring-[#C8963E]"
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map((num) => (
-                      <option key={num} value={String(num)}>
-                        Table {num}
-                      </option>
-                    ))}
-                    <option value="Takeaway">Takeaway</option>
-                  </select>
-                </div>
-
-                {/* Customer Name Input */}
-                <div className="col-span-2">
-                  <label className="block text-[11px] font-bold text-[#2C1A14] mb-1 flex items-center justify-between">
-                    <span className="flex items-center space-x-1">
-                      <User className="w-3.5 h-3.5 text-[#C8963E]" />
-                      <span>YOUR NAME *</span>
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Enter Your Name"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full bg-white text-xs px-3.5 py-2.5 rounded-xl border border-[#C8963E] text-[#2C1A14] font-semibold focus:outline-none focus:ring-2 focus:ring-[#C8963E] placeholder-stone-400"
-                  />
-                </div>
+              {/* Customer Name Row */}
+              <div>
+                <label className="block text-[11px] font-bold text-[#2C1A14] mb-1 flex items-center space-x-1">
+                  <User className="w-3.5 h-3.5 text-[#C8963E]" />
+                  <span>YOUR NAME *</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter Your Name"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full bg-white text-xs px-3.5 py-2.5 rounded-xl border border-[#C8963E] text-[#2C1A14] font-semibold focus:outline-none focus:ring-2 focus:ring-[#C8963E] placeholder-stone-400"
+                />
               </div>
 
               {/* Special Order Notes */}
@@ -368,7 +312,7 @@ export default function CartDrawer({ isOpen, onClose }) {
                     <span className="uppercase tracking-wider">
                       {existingOrder
                         ? `➕ Add to Order #${existingOrder.order_number || existingOrder.id.slice(0, 6)}`
-                        : `Send Order to Kitchen (Table ${tableNumber})`}
+                        : `Send Order to Kitchen`}
                     </span>
                     <ArrowRight className="w-4 h-4 text-[#C8963E]" />
                   </>
