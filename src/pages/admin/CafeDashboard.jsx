@@ -241,10 +241,17 @@ export default function CafeDashboard() {
                     <div>
                       <div className="p-4 bg-[#FAF6F0] border-b border-[#EFE6D8] flex items-center justify-between">
                         <div>
-                          <span className="text-[10px] font-bold text-[#6D4C41] uppercase tracking-wider block">
-                            ORDER #{order.order_number || order.id.slice(0, 6)}
-                          </span>
-                          <span className="font-serif font-extrabold text-xl text-[#2C1A14] flex items-center space-x-1.5">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-[10px] font-bold text-[#6D4C41] uppercase tracking-wider block">
+                              ORDER #{order.order_number || order.id.slice(0, 6)}
+                            </span>
+                            {order.updated_at && order.created_at && order.updated_at !== order.created_at && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-200 text-amber-900 border border-amber-300 uppercase">
+                                ⚡ MORE ITEMS ADDED
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-serif font-extrabold text-xl text-[#2C1A14] flex items-center space-x-1.5 mt-0.5">
                             <User className="w-4 h-4 text-[#C8963E]" />
                             <span>{customerName}</span>
                           </span>

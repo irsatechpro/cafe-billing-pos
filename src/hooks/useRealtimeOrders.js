@@ -29,7 +29,7 @@ export function useRealtimeOrders() {
           { event: '*', schema: 'public', table: 'orders' },
           (payload) => {
             fetchOrders();
-            if (payload.eventType === 'INSERT') {
+            if (payload.eventType === 'INSERT' || (payload.eventType === 'UPDATE' && payload.new?.status === 'NEW')) {
               setHasNewOrderAlert(true);
               playAlertSound();
             }
@@ -38,8 +38,12 @@ export function useRealtimeOrders() {
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'order_items' },
-          () => {
+          (payload) => {
             fetchOrders();
+            if (payload.eventType === 'INSERT') {
+              setHasNewOrderAlert(true);
+              playAlertSound();
+            }
           }
         )
         .subscribe();

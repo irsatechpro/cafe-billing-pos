@@ -3,55 +3,100 @@ import { getMenuItems } from './menuService';
 
 const isValidUUID = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
-// Find active unpaid order strictly for THIS device's activeOrderId
+// Helper to extract base customer name without table suffix e.g. "Ravi [Table 1]" -> "ravi"
+const extractBaseName = (name) => (name || '').replace(/\[.*?\]/g, '').trim().toLowerCase();
+
+// Find active unpaid order for a customer / device
 export async function getActiveOrderForCustomer(orderId = null, customerName = '') {
-  // If this device has no active order ID, it is a brand-new customer/order!
-  if (!orderId) return null;
-
   const activeStatuses = ['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'BILL_REQUESTED'];
-  const cleanName = (customerName || '').trim().toLowerCase();
+  const cleanBaseName = extractBaseName(customerName);
 
-  if (isLiveSupabaseConfigured && supabase) {
-    try {
-      const { data: activeOrders, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', orderId)
-        .in('status', activeStatuses)
-        .limit(1);
+  // 1. If orderId is provided, first look up by order ID!
+  if (orderId) {
+    if (isLiveSupabaseConfigured && supabase) {
+      try {
+        const { data: activeOrders, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', orderId)
+          .in('status', activeStatuses)
+          .limit(1);
 
-      if (!error && activeOrders && activeOrders.length > 0) {
-        const foundOrder = activeOrders[0];
-        const existingName = (foundOrder.customer_name || '').trim().toLowerCase();
+        if (!error && activeOrders && activeOrders.length > 0) {
+          const foundOrder = activeOrders[0];
+          const existingBase = extractBaseName(foundOrder.customer_name);
 
-        // Only match if the customer name matches this device's order!
-        if (!cleanName || existingName === cleanName) {
+          // As long as the order is active, verify name compatibility
+          const isMatch = !cleanBaseName || !existingBase || existingBase === cleanBaseName || existingBase.includes(cleanBaseName) || cleanBaseName.includes(existingBase);
+
+          if (isMatch) {
+            const { data: items } = await supabase
+              .from('order_items')
+              .select('*')
+              .eq('order_id', foundOrder.id)
+              .order('created_at', { ascending: true });
+
+            foundOrder.order_items = items || [];
+            foundOrder.items = items || [];
+            return foundOrder;
+          }
+        }
+      } catch (e) {
+        console.error('getActiveOrderForCustomer by orderId error:', e);
+      }
+    }
+
+    const orders = localStore.getOrders();
+    const found = orders.find(o => {
+      if (o.id !== orderId && String(o.order_number) !== String(orderId)) return false;
+      if (!activeStatuses.includes(o.status)) return false;
+      const existingBase = extractBaseName(o.customer_name);
+      return !cleanBaseName || !existingBase || existingBase === cleanBaseName || existingBase.includes(cleanBaseName) || cleanBaseName.includes(existingBase);
+    });
+
+    if (found) return found;
+  }
+
+  // 2. Fallback: If orderId was not provided, but customerName was provided, search by active customer name!
+  if (cleanBaseName && cleanBaseName !== 'guest') {
+    if (isLiveSupabaseConfigured && supabase) {
+      try {
+        const { data: namedOrders, error } = await supabase
+          .from('orders')
+          .select('*')
+          .ilike('customer_name', `%${cleanBaseName}%`)
+          .in('status', activeStatuses)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (!error && namedOrders && namedOrders.length > 0) {
+          const foundOrder = namedOrders[0];
           const { data: items } = await supabase
             .from('order_items')
             .select('*')
-            .eq('order_id', foundOrder.id);
+            .eq('order_id', foundOrder.id)
+            .order('created_at', { ascending: true });
 
           foundOrder.order_items = items || [];
           foundOrder.items = items || [];
           return foundOrder;
         }
+      } catch (e) {
+        console.error('getActiveOrderForCustomer by name error:', e);
       }
-
-      return null;
-    } catch (e) {
-      console.error('getActiveOrderForCustomer error:', e);
-      return null;
     }
+
+    const orders = localStore.getOrders();
+    const foundByName = orders.find(o => {
+      if (!activeStatuses.includes(o.status)) return false;
+      const existingBase = extractBaseName(o.customer_name);
+      return existingBase === cleanBaseName || existingBase.includes(cleanBaseName);
+    });
+
+    if (foundByName) return foundByName;
   }
 
-  const orders = localStore.getOrders();
-  const found = orders.find(o => {
-    const existingName = (o.customer_name || '').trim().toLowerCase();
-    const isMatchingName = !cleanName || existingName === cleanName;
-    return o.id === orderId && activeStatuses.includes(o.status) && isMatchingName;
-  });
-
-  return found || null;
+  return null;
 }
 
 // Place new order or append new items seamlessly to existing customer order
@@ -131,6 +176,11 @@ export async function placeOrder({ activeOrderId = null, cartItems, customerName
 
       const trueSubtotal = allItems.reduce((sum, i) => sum + Number(i.subtotal || (i.unit_price * i.quantity)), 0);
 
+      // Keep consistent customer name (avoid replacing with 'Guest' if previously named)
+      const finalCustomerName = (cleanCustomerName && cleanCustomerName !== 'Guest')
+        ? cleanCustomerName
+        : (existingActiveOrder.customer_name || 'Guest');
+
       // 3. Update existing order subtotal and total
       await supabase
         .from('orders')
@@ -138,7 +188,7 @@ export async function placeOrder({ activeOrderId = null, cartItems, customerName
           status: 'NEW', // Re-trigger NEW alert for kitchen
           subtotal: trueSubtotal,
           total_amount: trueSubtotal,
-          customer_name: cleanCustomerName,
+          customer_name: finalCustomerName,
           notes: combinedNotes,
           updated_at: new Date().toISOString()
         })
@@ -149,7 +199,7 @@ export async function placeOrder({ activeOrderId = null, cartItems, customerName
       const idx = orders.findIndex(o => o.id === existingActiveOrder.id);
       const updatedObj = {
         ...existingActiveOrder,
-        customer_name: cleanCustomerName,
+        customer_name: finalCustomerName,
         status: 'NEW',
         subtotal: trueSubtotal,
         total_amount: trueSubtotal,
@@ -179,9 +229,13 @@ export async function placeOrder({ activeOrderId = null, cartItems, customerName
       ];
       const trueSubtotal = mergedItems.reduce((sum, i) => sum + Number(i.subtotal || (i.unit_price * i.quantity)), 0);
 
+      const finalCustomerName = (cleanCustomerName && cleanCustomerName !== 'Guest')
+        ? cleanCustomerName
+        : (existingActiveOrder.customer_name || 'Guest');
+
       orders[index] = {
         ...orders[index],
-        customer_name: cleanCustomerName,
+        customer_name: finalCustomerName,
         status: 'NEW',
         subtotal: trueSubtotal,
         total_amount: trueSubtotal,

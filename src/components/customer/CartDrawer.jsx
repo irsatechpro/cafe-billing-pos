@@ -34,25 +34,38 @@ export default function CartDrawer({ isOpen, onClose }) {
   }, []);
 
   useEffect(() => {
+    if (!isOpen) return;
+
     const trimmed = (customerName || '').trim();
-    if (isOpen && trimmed) {
-      getActiveOrderForCustomer(activeOrderId, trimmed).then((ord) => {
-        if (ord && ord.id) {
-          setExistingOrder(ord);
-          if (activeOrderId !== ord.id) {
-            setActiveOrderId(ord.id);
-          }
-        } else {
-          setExistingOrder(null);
-          if (activeOrderId) {
-            setActiveOrderId(null);
+    const storedId = activeOrderId || localStorage.getItem('trio_bean_active_order_id');
+
+    getActiveOrderForCustomer(storedId, trimmed).then((ord) => {
+      if (ord && ord.id) {
+        setExistingOrder(ord);
+        if (activeOrderId !== ord.id) {
+          setActiveOrderId(ord.id);
+        }
+        // Auto-extract customer name and table if not already set
+        if (ord.customer_name) {
+          const match = ord.customer_name.match(/^(.*?)(?:\s*\[Table\s*([^\]]+)\])?$/i);
+          if (match) {
+            const parsedName = match[1].trim();
+            const parsedTable = match[2]?.trim();
+            if (parsedName && !customerName) {
+              setCustomerName(parsedName);
+            }
+            if (parsedTable) {
+              setTableNumber(parsedTable);
+            }
           }
         }
-      });
-    } else {
-      setExistingOrder(null);
-    }
-  }, [isOpen, customerName, activeOrderId, setActiveOrderId]);
+      } else {
+        setExistingOrder(null);
+      }
+    }).catch((err) => {
+      console.warn('getActiveOrderForCustomer check notice:', err);
+    });
+  }, [isOpen, customerName, activeOrderId, setActiveOrderId, setCustomerName]);
 
   if (!isOpen) return null;
 
@@ -73,9 +86,10 @@ export default function CartDrawer({ isOpen, onClose }) {
       } catch {}
 
       const fullCustomerName = `${customerName.trim()} [Table ${tableNumber}]`;
+      const targetOrderId = existingOrder?.id || activeOrderId || localStorage.getItem('trio_bean_active_order_id') || null;
 
       const createdOrder = await placeOrder({
-        activeOrderId: activeOrderId || null,
+        activeOrderId: targetOrderId,
         cartItems,
         customerName: fullCustomerName,
         customerPhone: customerPhone.trim(),
@@ -84,6 +98,9 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       if (createdOrder && createdOrder.id) {
         setActiveOrderId(createdOrder.id);
+        try {
+          localStorage.setItem('trio_bean_active_order_id', createdOrder.id);
+        } catch {}
       }
 
       // Fire celebratory confetti
@@ -143,6 +160,21 @@ export default function CartDrawer({ isOpen, onClose }) {
               </span>
               <span className="bg-[#2C1A14] text-[#E5C170] px-3 py-0.5 rounded-full font-bold">
                 {customerName} • Table {tableNumber}
+              </span>
+            </div>
+          )}
+
+          {/* Active Order Notice */}
+          {existingOrder && (
+            <div className="bg-amber-50 border-b border-amber-200/90 px-4 py-2.5 flex items-center justify-between text-xs text-amber-950">
+              <div className="flex items-center space-x-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                <span className="font-bold text-[#2C1A14]">
+                  Adding to Order #{existingOrder.order_number || existingOrder.id.slice(0, 6)}
+                </span>
+              </div>
+              <span className="bg-[#2C1A14] text-[#E5C170] font-mono text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                Active Order
               </span>
             </div>
           )}
@@ -334,7 +366,9 @@ export default function CartDrawer({ isOpen, onClose }) {
                 ) : (
                   <>
                     <span className="uppercase tracking-wider">
-                      {existingOrder ? 'Add to Current Order' : `Send Order to Kitchen (Table ${tableNumber})`}
+                      {existingOrder
+                        ? `➕ Add to Order #${existingOrder.order_number || existingOrder.id.slice(0, 6)}`
+                        : `Send Order to Kitchen (Table ${tableNumber})`}
                     </span>
                     <ArrowRight className="w-4 h-4 text-[#C8963E]" />
                   </>
