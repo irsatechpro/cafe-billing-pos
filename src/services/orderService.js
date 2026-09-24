@@ -3,6 +3,22 @@ import { getMenuItems } from './menuService';
 
 const isValidUUID = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
+// Broadcast realtime event across all open staff/kitchen screens via Supabase channel
+export function notifyRealtimeOrders(eventType, payload = {}) {
+  try {
+    if (isLiveSupabaseConfigured && supabase) {
+      const channel = supabase.channel('trio-bean-orders-desk');
+      channel.send({
+        type: 'broadcast',
+        event: eventType,
+        payload: { ...payload, timestamp: new Date().toISOString() }
+      }).catch(() => {});
+    }
+  } catch (e) {
+    console.warn('Realtime notify notice:', e);
+  }
+}
+
 // Helper to extract base customer name without table suffix e.g. "Ravi [Table 1]" -> "ravi"
 const extractBaseName = (name) => (name || '').replace(/\[.*?\]/g, '').trim().toLowerCase();
 
@@ -223,6 +239,7 @@ export async function placeOrder({ activeOrderId = null, cartItems, customerName
         orders.unshift(updatedObj);
       }
       localStore.saveOrders(orders);
+      notifyRealtimeOrders('new_order_placed', { orderId: existingActiveOrder.id, customerName: finalCustomerName, isAppend: true });
 
       return updatedObj;
     }
@@ -308,6 +325,7 @@ export async function placeOrder({ activeOrderId = null, cartItems, customerName
     const orders = localStore.getOrders();
     orders.unshift(fullOrder);
     localStore.saveOrders(orders);
+    notifyRealtimeOrders('new_order_placed', { orderId: createdOrder.id, customerName: cleanCustomerName, isAppend: false });
 
     return fullOrder;
   }
@@ -336,6 +354,7 @@ export async function placeOrder({ activeOrderId = null, cartItems, customerName
 
   orders.unshift(newOrder);
   localStore.saveOrders(orders);
+  notifyRealtimeOrders('new_order_placed', { orderId: newOrder.id, customerName: cleanCustomerName, isAppend: false });
   return newOrder;
 }
 
@@ -433,6 +452,7 @@ export async function updateOrderStatus(orderId, newStatus) {
       console.error('Supabase update order status error:', error);
       throw error;
     }
+    notifyRealtimeOrders('order_updated', { orderId, newStatus });
     return data && data.length > 0 ? data[0] : null;
   }
 
@@ -446,6 +466,7 @@ export async function updateOrderStatus(orderId, newStatus) {
       ...timestampFields
     };
     localStore.saveOrders(orders);
+    notifyRealtimeOrders('order_updated', { orderId, newStatus });
     return orders[index];
   }
   throw new Error('Order not found');
@@ -473,6 +494,7 @@ export async function deleteOrder(orderId) {
 
   const orders = localStore.getOrders().filter(o => o.id !== orderId && String(o.order_number) !== String(orderId));
   localStore.saveOrders(orders);
+  notifyRealtimeOrders('order_deleted', { orderId });
   return true;
 }
 
@@ -504,5 +526,6 @@ export async function deleteAllOrders() {
 
   localStore.saveOrders([]);
   localStore.savePayments([]);
+  notifyRealtimeOrders('orders_cleared', {});
   return true;
 }

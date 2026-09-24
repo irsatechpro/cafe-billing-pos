@@ -1,5 +1,5 @@
 import { supabase, isLiveSupabaseConfigured, localStore } from '../lib/supabase';
-import { updateOrderStatus } from './orderService';
+import { updateOrderStatus, notifyRealtimeOrders } from './orderService';
 
 // Record payment for single or combined customer orders (CASH, UPI, CARD)
 export async function recordPayment({ orderId, orderIds = [], paymentMethod, amount, transactionRef = '', staffId = null }) {
@@ -56,6 +56,8 @@ export async function recordPayment({ orderId, orderIds = [], paymentMethod, amo
   for (const id of idsToProcess) {
     await updateOrderStatus(id, 'COMPLETED');
   }
+
+  notifyRealtimeOrders('order_paid_completed', { orderIds: idsToProcess });
 
   return newPayment;
 }

@@ -7,7 +7,7 @@ import { Bell, Check, Clock, Utensils, AlertCircle, RefreshCw, ChevronRight, Dol
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
 export default function CafeDashboard() {
-  const { orders, loading, refetch, hasNewOrderAlert, clearNewOrderAlert } = useRealtimeOrders();
+  const { orders, loading, refetch, hasNewOrderAlert, clearNewOrderAlert, realtimeConnected } = useRealtimeOrders();
   const [activeTab, setActiveTab] = useState('ACTIVE');
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState(null);
   const [actionLoadingId, setActionLoadingId] = useState(null);
@@ -114,9 +114,15 @@ export default function CafeDashboard() {
         {/* Top Header Bar */}
         <header className="bg-white px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 border-b border-[#EFE6D8] sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 shadow-xs">
           <div>
-            <span className="text-[10px] font-bold text-[#C8963E] uppercase tracking-widest font-mono">
-              REALTIME KITCHEN & CAFE DESK
-            </span>
+            <div className="flex items-center space-x-2">
+              <span className="text-[10px] font-bold text-[#C8963E] uppercase tracking-widest font-mono">
+                REALTIME KITCHEN & CAFE DESK
+              </span>
+              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                <span>SUPABASE LIVE REALTIME</span>
+              </span>
+            </div>
             <h1 className="font-serif font-bold text-xl sm:text-2xl text-[#2C1A14]">
               Cafe Live Order Management
             </h1>
