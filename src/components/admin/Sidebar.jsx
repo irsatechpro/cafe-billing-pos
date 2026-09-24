@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Coffee, LayoutDashboard, UtensilsCrossed, BookOpen, QrCode, Receipt, LogOut, ShieldCheck, Menu, X, Settings, Store } from 'lucide-react';
+import { Coffee, LayoutDashboard, UtensilsCrossed, BookOpen, QrCode, Receipt, LogOut, ShieldCheck, Menu, X, Settings, Store, Wallet } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCafe } from '../../context/CafeContext';
 
@@ -12,7 +12,8 @@ export default function Sidebar() {
 
   const navItems = [
     { to: '/admin/cafe', label: 'Cafe Live Orders', icon: UtensilsCrossed, badge: 'Realtime' },
-    { to: '/admin/dashboard', label: 'Sales & Expenses', icon: LayoutDashboard },
+    { to: '/admin/dashboard', label: 'Sales Dashboard', icon: LayoutDashboard },
+    { to: '/admin/expenses', label: 'Cafe Expenses', icon: Wallet },
     { to: '/admin/menu', label: 'Menu Management', icon: BookOpen },
     { to: '/admin/qr', label: 'Cafe QR Code', icon: QrCode },
     { to: '/admin/orders/history', label: 'Order History', icon: Receipt },

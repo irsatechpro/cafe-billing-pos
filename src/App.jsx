@@ -17,6 +17,7 @@ import MenuManagement from './pages/admin/MenuManagement';
 import TableManagement from './pages/admin/TableManagement';
 import OrderHistory from './pages/admin/OrderHistory';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import ExpensesPage from './pages/admin/ExpensesPage';
 import SettingsPage from './pages/admin/SettingsPage';
 
 function ProtectedRoute({ children }) {
@@ -52,6 +53,7 @@ export default function App() {
                 <Route path="/admin" element={<Navigate to="/admin/cafe" replace />} />
                 <Route path="/admin/cafe" element={<ProtectedRoute><CafeDashboard /></ProtectedRoute>} />
                 <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+                <Route path="/admin/expenses" element={<ProtectedRoute><ExpensesPage /></ProtectedRoute>} />
                 <Route path="/admin/menu" element={<ProtectedRoute><MenuManagement /></ProtectedRoute>} />
                 <Route path="/admin/qr" element={<ProtectedRoute><TableManagement /></ProtectedRoute>} />
                 <Route path="/admin/tables" element={<ProtectedRoute><TableManagement /></ProtectedRoute>} />
