@@ -11,22 +11,26 @@ export async function getActiveOrderForCustomer(orderId = null, customerName = '
   const activeStatuses = ['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'BILL_REQUESTED'];
   const cleanBaseName = extractBaseName(customerName);
 
-  // 1. If orderId is provided, first look up by order ID!
-  if (orderId) {
-    if (isLiveSupabaseConfigured && supabase) {
-      try {
-        const { data: activeOrders, error } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('id', orderId)
-          .in('status', activeStatuses)
-          .limit(1);
+  // 1. If orderId is provided, first look up in Supabase (supporting both UUID id and numeric order_number)
+  if (orderId && isLiveSupabaseConfigured && supabase) {
+    try {
+      let query = supabase.from('orders').select('*').in('status', activeStatuses);
+      if (isValidUUID(orderId)) {
+        query = query.eq('id', orderId);
+      } else if (!isNaN(Number(orderId))) {
+        query = query.eq('order_number', Number(orderId));
+      } else {
+        query = null;
+      }
+
+      if (query) {
+        const { data: activeOrders, error } = await query.limit(1);
 
         if (!error && activeOrders && activeOrders.length > 0) {
           const foundOrder = activeOrders[0];
           const existingBase = extractBaseName(foundOrder.customer_name);
 
-          // As long as the order is active, verify name compatibility
+          // Verify name compatibility
           const isMatch = !cleanBaseName || !existingBase || existingBase === cleanBaseName || existingBase.includes(cleanBaseName) || cleanBaseName.includes(existingBase);
 
           if (isMatch) {
@@ -41,12 +45,45 @@ export async function getActiveOrderForCustomer(orderId = null, customerName = '
             return foundOrder;
           }
         }
-      } catch (e) {
-        console.error('getActiveOrderForCustomer by orderId error:', e);
       }
+    } catch (e) {
+      console.warn('getActiveOrderForCustomer by orderId notice:', e);
     }
+  }
 
-    const orders = localStore.getOrders();
+  // 2. Fallback: Always check by customer name for ANY active unpaid order in Supabase!
+  // If the same customer orders again from their seating, it will ALWAYS match their active order
+  // and append new items into the same bill instead of creating a separate order!
+  if (cleanBaseName && cleanBaseName !== 'guest' && isLiveSupabaseConfigured && supabase) {
+    try {
+      const { data: namedOrders, error } = await supabase
+        .from('orders')
+        .select('*')
+        .ilike('customer_name', `%${cleanBaseName}%`)
+        .in('status', activeStatuses)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (!error && namedOrders && namedOrders.length > 0) {
+        const foundOrder = namedOrders[0];
+        const { data: items } = await supabase
+          .from('order_items')
+          .select('*')
+          .eq('order_id', foundOrder.id)
+          .order('created_at', { ascending: true });
+
+        foundOrder.order_items = items || [];
+        foundOrder.items = items || [];
+        return foundOrder;
+      }
+    } catch (e) {
+      console.warn('getActiveOrderForCustomer by name notice:', e);
+    }
+  }
+
+  // 3. Fallback: LocalStore by orderId
+  const orders = localStore.getOrders();
+  if (orderId) {
     const found = orders.find(o => {
       if (o.id !== orderId && String(o.order_number) !== String(orderId)) return false;
       if (!activeStatuses.includes(o.status)) return false;
@@ -57,40 +94,12 @@ export async function getActiveOrderForCustomer(orderId = null, customerName = '
     if (found) return found;
   }
 
-  // 2. Fallback: If orderId was not provided, but customerName was provided, search by active customer name!
+  // 4. Fallback: LocalStore by customer name
   if (cleanBaseName && cleanBaseName !== 'guest') {
-    if (isLiveSupabaseConfigured && supabase) {
-      try {
-        const { data: namedOrders, error } = await supabase
-          .from('orders')
-          .select('*')
-          .ilike('customer_name', `%${cleanBaseName}%`)
-          .in('status', activeStatuses)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (!error && namedOrders && namedOrders.length > 0) {
-          const foundOrder = namedOrders[0];
-          const { data: items } = await supabase
-            .from('order_items')
-            .select('*')
-            .eq('order_id', foundOrder.id)
-            .order('created_at', { ascending: true });
-
-          foundOrder.order_items = items || [];
-          foundOrder.items = items || [];
-          return foundOrder;
-        }
-      } catch (e) {
-        console.error('getActiveOrderForCustomer by name error:', e);
-      }
-    }
-
-    const orders = localStore.getOrders();
     const foundByName = orders.find(o => {
       if (!activeStatuses.includes(o.status)) return false;
       const existingBase = extractBaseName(o.customer_name);
-      return existingBase === cleanBaseName || existingBase.includes(cleanBaseName);
+      return existingBase === cleanBaseName || existingBase.includes(cleanBaseName) || cleanBaseName.includes(existingBase);
     });
 
     if (foundByName) return foundByName;
@@ -364,13 +373,18 @@ export async function getActiveOrders() {
 
 // Fetch single order details by ID
 export async function getOrderById(orderId) {
-  if (isLiveSupabaseConfigured && supabase) {
+  if (isLiveSupabaseConfigured && supabase && orderId) {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', orderId)
-        .limit(1);
+      let query = supabase.from('orders').select('*');
+      if (isValidUUID(orderId)) {
+        query = query.eq('id', orderId);
+      } else if (!isNaN(Number(orderId))) {
+        query = query.eq('order_number', Number(orderId));
+      } else {
+        query = query.eq('id', orderId);
+      }
+
+      const { data, error } = await query.limit(1);
 
       if (!error && data && data.length > 0) {
         const order = data[0];

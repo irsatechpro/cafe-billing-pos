@@ -451,6 +451,7 @@ export default function CafeDashboard() {
       {selectedOrderForPayment && (
         <PaymentModal
           order={selectedOrderForPayment}
+          allOrders={orders}
           onClose={() => setSelectedOrderForPayment(null)}
           onSuccess={() => refetch()}
         />

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, CheckCircle, CreditCard, Banknote, QrCode as QrIcon, AlertCircle } from 'lucide-react';
 import { recordPayment } from '../../services/paymentService';
 
-export default function PaymentModal({ order, onClose, onSuccess }) {
+export default function PaymentModal({ order, allOrders = [], onClose, onSuccess }) {
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [transactionRef, setTransactionRef] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -11,6 +11,18 @@ export default function PaymentModal({ order, onClose, onSuccess }) {
   if (!order) return null;
 
   const customerName = order.customer_name || 'Guest';
+  const customerBaseName = customerName.replace(/\[.*?\]/g, '').trim().toLowerCase();
+
+  // Find all active orders for this same customer if multiple orders existed
+  const matchingOrders = (allOrders || []).filter(o => {
+    if (o.status === 'COMPLETED' || o.status === 'CANCELLED') return false;
+    const base = (o.customer_name || '').replace(/\[.*?\]/g, '').trim().toLowerCase();
+    return base === customerBaseName && customerBaseName !== 'guest';
+  });
+
+  const idsToProcess = matchingOrders.length > 0 
+    ? Array.from(new Set([order.id, ...matchingOrders.map(o => o.id)]))
+    : [order.id];
 
   // Helper to calculate total for this specific order
   const items = order.order_items || order.items || [];
@@ -36,7 +48,7 @@ export default function PaymentModal({ order, onClose, onSuccess }) {
     try {
       await recordPayment({
         orderId: order.id,
-        orderIds: [order.id],
+        orderIds: idsToProcess,
         paymentMethod,
         amount: orderTotal,
         transactionRef: transactionRef.trim() || `REF-${Date.now().toString(36).toUpperCase()}`

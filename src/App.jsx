@@ -53,6 +53,7 @@ export default function App() {
                 <Route path="/admin/cafe" element={<ProtectedRoute><CafeDashboard /></ProtectedRoute>} />
                 <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
                 <Route path="/admin/menu" element={<ProtectedRoute><MenuManagement /></ProtectedRoute>} />
+                <Route path="/admin/qr" element={<ProtectedRoute><TableManagement /></ProtectedRoute>} />
                 <Route path="/admin/tables" element={<ProtectedRoute><TableManagement /></ProtectedRoute>} />
                 <Route path="/admin/orders/history" element={<ProtectedRoute><OrderHistory /></ProtectedRoute>} />
                 <Route path="/admin/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />

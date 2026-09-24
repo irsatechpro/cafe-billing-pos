@@ -62,7 +62,7 @@ export default function TableManagement() {
             <div class="sub">${cafeTagline}</div>
             <img class="qr" src="${dataUrl}" width="220" height="220" />
             <p class="instructions">Scan to View Menu & Order</p>
-            <p class="helper">Point your phone camera at the QR code to browse our full menu and place orders.</p>
+            <p class="helper">Point your phone camera at the QR code to browse our full menu and place orders from your seating.</p>
             <div class="footer">TRIO BEAN DIGITAL DINING SYSTEM</div>
           </div>
           <script>
@@ -82,10 +82,10 @@ export default function TableManagement() {
         <header className="bg-white px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4 border-b border-[#EFE6D8] sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 shadow-xs">
           <div>
             <span className="text-[10px] font-bold text-[#C8963E] uppercase tracking-widest font-mono">
-              TRIO BEAN QR CODE GENERATOR
+              TRIO BEAN SEATING QR CODE
             </span>
             <h1 className="font-serif font-bold text-xl sm:text-2xl text-[#2C1A14]">
-              Digital Menu QR Stand
+              Customer Seating QR Stand
             </h1>
           </div>
 
@@ -179,7 +179,7 @@ export default function TableManagement() {
                 className="py-3.5 px-4 rounded-2xl bg-[#2C1A14] text-[#E5C170] hover:bg-[#3E2723] font-bold text-xs flex items-center justify-center space-x-2 transition-all shadow-md active:scale-98"
               >
                 <Printer className="w-4 h-4" />
-                <span>PRINT QR STAND</span>
+                <span>PRINT SEATING QR STAND</span>
               </button>
             </div>
           </div>

@@ -14,7 +14,7 @@ export default function Sidebar() {
     { to: '/admin/cafe', label: 'Cafe Live Orders', icon: UtensilsCrossed, badge: 'Realtime' },
     { to: '/admin/dashboard', label: 'Sales & Expenses', icon: LayoutDashboard },
     { to: '/admin/menu', label: 'Menu Management', icon: BookOpen },
-    { to: '/admin/tables', label: 'Cafe QR Code', icon: QrCode },
+    { to: '/admin/qr', label: 'Cafe QR Code', icon: QrCode },
     { to: '/admin/orders/history', label: 'Order History', icon: Receipt },
     { to: '/admin/settings', label: 'Cafe Settings', icon: Settings },
   ];
