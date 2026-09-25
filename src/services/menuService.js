@@ -1,26 +1,88 @@
 import { supabase, isLiveSupabaseConfigured, localStore } from '../lib/supabase';
 
-// Instant cached categories fetch (0ms UI latency)
+export const isValidUUID = (id) =>
+  typeof id === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+export function generateUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+// Compress uploaded image using Canvas to an efficient WebP/JPEG data URL (~30-60KB)
+export async function compressImageFile(file, maxWidth = 800, maxHeight = 800, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/webp', quality) || canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Upload product image (compresses to fast, lightweight format for database storage)
+export async function uploadMenuImage(file) {
+  if (!file) return null;
+  try {
+    const compressedDataUrl = await compressImageFile(file);
+    return compressedDataUrl;
+  } catch (err) {
+    console.warn('Image compression fallback:', err);
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+}
+
+// Instant cached categories fetch
 export function getInstantCategories(cafeId) {
-  const all = localStore.getCategories().filter(c => c.is_active);
-  if (!cafeId || cafeId === 'cafe-default-001' || cafeId === 'trio-bean' || cafeId === 'cafe_mub1covl_9uws') {
-    return all;
-  }
-  return all.filter(c => c.cafe_id === cafeId);
+  const all = localStore.getCategories().filter(c => c.is_active && c.name && c.name.trim());
+  const unique = Array.from(new Map(all.map(c => [c.name.trim().toLowerCase(), c])).values());
+  return unique;
 }
 
-// Instant cached menu items fetch (0ms UI latency)
+// Instant cached menu items fetch
 export function getInstantMenuItems(cafeId) {
-  const all = localStore.getMenuItems();
-  if (!cafeId || cafeId === 'cafe-default-001' || cafeId === 'trio-bean' || cafeId === 'cafe_mub1covl_9uws') {
-    return all;
-  }
-  return all.filter(i => i.cafe_id === cafeId);
+  return localStore.getMenuItems();
 }
 
-// Fetch all active categories directly from Supabase, with server & cache fallback
+// Fetch all active categories directly from Supabase Postgres database
 export async function getCategories(cafeId) {
-  // 1. Primary: Direct query from Supabase Postgres database
   if (isLiveSupabaseConfigured && supabase) {
     try {
       const { data, error } = await supabase
@@ -30,41 +92,26 @@ export async function getCategories(cafeId) {
         .order('display_order', { ascending: true });
 
       if (!error && data && data.length > 0) {
-        localStore.saveCategories(data);
-        return data;
+        const unique = Array.from(new Map(data.map(c => [(c.name || '').trim().toLowerCase(), c])).values());
+        localStore.saveCategories(unique);
+        return unique;
       }
     } catch (e) {
       console.warn('Supabase getCategories error, falling back:', e);
     }
   }
 
-  // 2. Server API fallback
-  try {
-    const url = cafeId ? `/api/menu?cafe=${encodeURIComponent(cafeId)}` : '/api/menu';
-    const res = await fetch(url);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.categories && data.categories.length > 0) {
-        return data.categories.filter(c => c.is_active);
-      }
-    }
-  } catch (e) {
-    console.warn('Server API fetch categories fallback to cache:', e);
-  }
-
-  // 3. Fallback to localStore
   return getInstantCategories(cafeId);
 }
 
-// Fetch menu items directly from Supabase, with server & cache fallback
+// Fetch menu items directly from Supabase Postgres database
 export async function getMenuItems(forceReload = false, cafeId) {
-  // 1. Primary: Direct query from Supabase Postgres database
   if (isLiveSupabaseConfigured && supabase) {
     try {
       const { data, error } = await supabase
         .from('menu_items')
         .select('*')
-        .order('created_at', { ascending: true });
+        .order('display_order', { ascending: true });
 
       if (!error && data && data.length > 0) {
         localStore.saveMenuItems(data);
@@ -75,78 +122,56 @@ export async function getMenuItems(forceReload = false, cafeId) {
     }
   }
 
-  // 2. Server API fallback
-  try {
-    const url = cafeId ? `/api/menu?cafe=${encodeURIComponent(cafeId)}` : '/api/menu';
-    const res = await fetch(url);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.items && data.items.length > 0) {
-        return data.items;
-      }
-    }
-  } catch (e) {
-    console.warn('Server API fetch menu fallback to cache:', e);
-  }
-
-  // 3. Fallback to localStore
   return getInstantMenuItems(cafeId);
 }
 
-// Create category in Supabase, shared API and local cache
+// Create category in Supabase Postgres and local cache
 export async function createCategory(categoryData) {
-  const catId = categoryData.id || ('cat_' + Date.now().toString(36));
+  const catId = isValidUUID(categoryData.id) ? categoryData.id : generateUUID();
   const newCat = {
     id: catId,
     name: (categoryData.name || '').trim(),
     display_order: categoryData.display_order || (localStore.getCategories().length + 1),
     is_active: true,
-    cafe_id: categoryData.cafe_id || 'cafe_mub1covl_9uws',
+    cafe_id: '00000000-0000-0000-0000-000000000001',
     created_at: new Date().toISOString()
   };
 
-  // 1. Direct insert to Supabase
+  // 1. Direct insert to Supabase Postgres
   if (isLiveSupabaseConfigured && supabase) {
     try {
-      const { error } = await supabase.from('categories').insert([{
+      const { data, error } = await supabase.from('categories').insert([{
         id: newCat.id,
         name: newCat.name,
         display_order: newCat.display_order,
         is_active: true,
         cafe_id: newCat.cafe_id
-      }]);
+      }]).select();
+
+      if (!error && data && data.length > 0) {
+        newCat.id = data[0].id;
+      }
       if (error) console.warn('Supabase createCategory notice:', error.message);
     } catch (e) {
       console.warn('Supabase createCategory catch error:', e);
     }
   }
 
-  // 2. Server API sync
-  try {
-    await fetch('/api/menu/categories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newCat)
-    });
-  } catch (e) {}
-
-  // 3. Update localStore
-  const cats = localStore.getCategories();
+  // 2. Update localStore
+  const cats = localStore.getCategories().filter(c => c.id !== newCat.id);
   cats.push(newCat);
   localStore.saveCategories(cats);
   return newCat;
 }
 
-// Delete category and all its items in Supabase, server and local cache
+// Delete category and all its items in Supabase Postgres and local cache
 export async function deleteCategory(categoryId) {
   if (!categoryId) return false;
 
-  // 1. Delete from Supabase
-  if (isLiveSupabaseConfigured && supabase) {
+  // 1. Delete from Supabase Postgres
+  if (isLiveSupabaseConfigured && supabase && isValidUUID(categoryId)) {
     try {
-      // Delete associated menu items first
       await supabase.from('menu_items').delete().eq('category_id', categoryId);
-      // Delete category
       const { error } = await supabase.from('categories').delete().eq('id', categoryId);
       if (error) console.warn('Supabase deleteCategory notice:', error.message);
     } catch (e) {
@@ -154,14 +179,7 @@ export async function deleteCategory(categoryId) {
     }
   }
 
-  // 2. Server API sync
-  try {
-    await fetch(`/api/menu/categories/${encodeURIComponent(categoryId)}`, {
-      method: 'DELETE'
-    });
-  } catch (e) {}
-
-  // 3. Update localStore: remove category & its items
+  // 2. Update localStore
   const cats = localStore.getCategories().filter(c => String(c.id) !== String(categoryId));
   localStore.saveCategories(cats);
 
@@ -171,34 +189,30 @@ export async function deleteCategory(categoryId) {
   return true;
 }
 
-// Update menu item across all devices
+// Update menu item in Supabase Postgres and local cache
 export async function updateMenuItem(id, updates) {
-  let updatedItem = null;
+  const supaPayload = {};
+  if (updates.name !== undefined) supaPayload.name = updates.name.trim();
+  if (updates.description !== undefined) supaPayload.description = updates.description.trim();
+  if (updates.price !== undefined) supaPayload.price = Number(updates.price);
+  if (updates.image_url !== undefined) supaPayload.image_url = updates.image_url;
+  if (updates.is_available !== undefined) supaPayload.is_available = updates.is_available;
+  if (updates.category_id !== undefined && isValidUUID(updates.category_id)) {
+    supaPayload.category_id = updates.category_id;
+  }
+  supaPayload.updated_at = new Date().toISOString();
 
-  // 1. Sync to Supabase
-  if (isLiveSupabaseConfigured && supabase) {
+  // 1. Sync directly to Supabase Postgres
+  if (isLiveSupabaseConfigured && supabase && isValidUUID(id)) {
     try {
-      await supabase.from('menu_items').update(updates).eq('id', id);
+      const { error } = await supabase.from('menu_items').update(supaPayload).eq('id', id);
+      if (error) console.warn('Supabase updateMenuItem error:', error.message);
     } catch (e) {
-      console.warn('Supabase updateMenuItem sync:', e);
+      console.warn('Supabase updateMenuItem catch error:', e);
     }
   }
 
-  // 2. Server API sync
-  try {
-    const res = await fetch(`/api/menu/items/${encodeURIComponent(id)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
-    });
-    if (res.ok) {
-      updatedItem = await res.json();
-    }
-  } catch (e) {
-    console.warn('Server API updateMenuItem error:', e);
-  }
-
-  // 3. Update localStore
+  // 2. Update localStore
   const items = localStore.getMenuItems();
   const index = items.findIndex(i => String(i.id) === String(id));
   if (index !== -1) {
@@ -207,50 +221,43 @@ export async function updateMenuItem(id, updates) {
     return items[index];
   }
 
-  return updatedItem || { id, ...updates };
+  return { id, ...updates };
 }
 
-// Create new menu item in Supabase, server and local cache
+// Create new menu item in Supabase Postgres and local cache
 export async function createMenuItem(itemData) {
+  const itemId = isValidUUID(itemData.id) ? itemData.id : generateUUID();
+  const payload = {
+    id: itemId,
+    category_id: isValidUUID(itemData.category_id) ? itemData.category_id : null,
+    name: (itemData.name || '').trim(),
+    description: (itemData.description || '').trim(),
+    price: Number(itemData.price) || 0,
+    image_url: itemData.image_url || '',
+    is_available: itemData.is_available !== false,
+    display_order: Number(itemData.display_order) || 0,
+    cafe_id: '00000000-0000-0000-0000-000000000001'
+  };
+
   let created = null;
 
-  // 1. Server API sync
-  try {
-    const res = await fetch('/api/menu/items', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(itemData)
-    });
-    if (res.ok) {
-      created = await res.json();
-    }
-  } catch (e) {
-    console.warn('Server API createMenuItem error:', e);
-  }
-
-  // 2. Direct insert to Supabase
+  // 1. Direct insert into Supabase Postgres
   if (isLiveSupabaseConfigured && supabase) {
     try {
-      await supabase.from('menu_items').insert([{
-        id: created?.id || ('m_' + Date.now()),
-        category_id: itemData.category_id,
-        name: (itemData.name || '').trim(),
-        description: (itemData.description || '').trim(),
-        price: Number(itemData.price),
-        image_url: itemData.image_url || '',
-        is_available: itemData.is_available !== false,
-        cafe_id: itemData.cafe_id || 'cafe_mub1covl_9uws'
-      }]);
+      const { data, error } = await supabase.from('menu_items').insert([payload]).select();
+      if (!error && data && data.length > 0) {
+        created = data[0];
+      }
+      if (error) console.warn('Supabase createMenuItem error:', error.message);
     } catch (e) {
-      console.warn('Supabase createMenuItem sync:', e);
+      console.warn('Supabase createMenuItem catch error:', e);
     }
   }
 
-  // 3. Update localStore
+  // 2. Update localStore
   const items = localStore.getMenuItems();
   const newItem = created || {
-    id: 'm_' + Date.now(),
-    ...itemData,
+    ...payload,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
@@ -259,65 +266,20 @@ export async function createMenuItem(itemData) {
   return newItem;
 }
 
-// Delete menu item across Supabase, server and local cache
+// Delete menu item from Supabase Postgres and local cache
 export async function deleteMenuItem(id) {
-  // 1. Server API sync
-  try {
-    await fetch(`/api/menu/items/${encodeURIComponent(id)}`, {
-      method: 'DELETE'
-    });
-  } catch (e) {
-    console.warn('Server API deleteMenuItem error:', e);
-  }
-
-  // 2. Delete from Supabase
-  if (isLiveSupabaseConfigured && supabase) {
+  // 1. Delete from Supabase Postgres
+  if (isLiveSupabaseConfigured && supabase && isValidUUID(id)) {
     try {
-      await supabase.from('menu_items').delete().eq('id', id);
+      const { error } = await supabase.from('menu_items').delete().eq('id', id);
+      if (error) console.warn('Supabase deleteMenuItem error:', error.message);
     } catch (e) {
-      console.warn('Supabase deleteMenuItem sync:', e);
+      console.warn('Supabase deleteMenuItem catch error:', e);
     }
   }
 
-  // 3. Update localStore
+  // 2. Update localStore
   const items = localStore.getMenuItems().filter(i => String(i.id) !== String(id));
   localStore.saveMenuItems(items);
   return true;
-}
-
-// Upload product image
-export async function uploadMenuImage(file) {
-  if (!file) return null;
-
-  try {
-    const base64Data = await fileToDataURL(file);
-    const res = await fetch('/api/upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filename: file.name,
-        base64Data
-      })
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.url) {
-        return data.url;
-      }
-    }
-  } catch (e) {
-    console.warn('Server upload error, falling back to data URL:', e);
-  }
-
-  return await fileToDataURL(file);
-}
-
-function fileToDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
