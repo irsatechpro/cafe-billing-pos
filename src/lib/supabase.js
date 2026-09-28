@@ -24,6 +24,22 @@ class LocalFallbackStore {
   }
 
   init() {
+    // Purge any stale non-UUID mock/pending orders from localStorage
+    try {
+      const activeId = localStorage.getItem('trio_bean_active_order_id');
+      if (activeId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeId) && isNaN(Number(activeId))) {
+        localStorage.removeItem('trio_bean_active_order_id');
+        localStorage.removeItem('trio_bean_customer_name');
+        localStorage.removeItem('trio_bean_cart');
+      }
+      const rawOrders = localStorage.getItem('tb_orders');
+      if (rawOrders) {
+        const parsed = JSON.parse(rawOrders);
+        const valid = parsed.filter(o => o.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(o.id));
+        localStorage.setItem('tb_orders', JSON.stringify(valid));
+      }
+    } catch (e) {}
+
     // Only initialize empty storage keys – NO seed data.
     // The app fetches everything from Supabase directly.
     if (!localStorage.getItem('tb_categories')) {

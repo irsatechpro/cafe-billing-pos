@@ -102,28 +102,29 @@ const activeStatuses = ['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'BILL
     }
   }
 
-  // 3. Fallback: LocalStore by orderId
-  const orders = localStore.getOrders();
-  if (orderId) {
-    const found = orders.find(o => {
-      if (o.id !== orderId && String(o.order_number) !== String(orderId)) return false;
-      if (!activeStatuses.includes(o.status)) return false;
-      const existingBase = extractBaseName(o.customer_name);
-      return !cleanBaseName || !existingBase || existingBase === cleanBaseName || existingBase.includes(cleanBaseName) || cleanBaseName.includes(existingBase);
-    });
+  // 3. Fallback: LocalStore (ONLY when Supabase is NOT configured)
+  if (!isLiveSupabaseConfigured) {
+    const orders = localStore.getOrders();
+    if (orderId) {
+      const found = orders.find(o => {
+        if (o.id !== orderId && String(o.order_number) !== String(orderId)) return false;
+        if (!activeStatuses.includes(o.status)) return false;
+        const existingBase = extractBaseName(o.customer_name);
+        return !cleanBaseName || !existingBase || existingBase === cleanBaseName || existingBase.includes(cleanBaseName) || cleanBaseName.includes(existingBase);
+      });
 
-    if (found) return found;
-  }
+      if (found) return found;
+    }
 
-  // 4. Fallback: LocalStore by customer name
-  if (cleanBaseName && cleanBaseName !== 'guest') {
-    const foundByName = orders.find(o => {
-      if (!activeStatuses.includes(o.status)) return false;
-      const existingBase = extractBaseName(o.customer_name);
-      return existingBase === cleanBaseName || existingBase.includes(cleanBaseName) || cleanBaseName.includes(existingBase);
-    });
+    if (cleanBaseName && cleanBaseName !== 'guest') {
+      const foundByName = orders.find(o => {
+        if (!activeStatuses.includes(o.status)) return false;
+        const existingBase = extractBaseName(o.customer_name);
+        return existingBase === cleanBaseName || existingBase.includes(cleanBaseName) || cleanBaseName.includes(existingBase);
+      });
 
-    if (foundByName) return foundByName;
+      if (foundByName) return foundByName;
+    }
   }
 
   return null;
@@ -162,8 +163,9 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
     });
   }
 
-  // Check if customer already has an active unpaid order (reuse passed existingOrder to eliminate network latency)
-  const existingActiveOrder = existingOrder || (await getActiveOrderForCustomer(activeOrderId, cleanCustomerName));
+  // Check if customer already has an active unpaid order (ONLY with valid Supabase UUID)
+  const candidateOrder = existingOrder || (await getActiveOrderForCustomer(activeOrderId, cleanCustomerName));
+  const existingActiveOrder = (candidateOrder && isValidUUID(candidateOrder.id)) ? candidateOrder : null;
 
   if (existingActiveOrder) {
     // MERGE & APPEND items directly into existing active order!
@@ -201,7 +203,7 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
     }
     localStore.saveOrders(orders);
 
-    // Sync to Supabase FIRST, then broadcast so the kitchen sees complete data
+    // Sync to Supabase FIRST, then broadcast so kitchen sees complete data
     if (isLiveSupabaseConfigured && supabase) {
       const orderItemsPayload = validatedOrderItems.map(item => ({
         order_id: existingActiveOrder.id,
@@ -226,7 +228,8 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
           }).eq('id', existingActiveOrder.id)
         ]);
       } catch (err) {
-        console.warn('Supabase append error (safely cached locally):', err);
+        console.warn('Supabase append error:', err);
+        throw new Error('Unable to update kitchen order. Please check connection and try again.');
       }
     }
 
@@ -241,12 +244,82 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
   const discountAmount = 0;
   const totalAmount = newItemsSubtotal + taxAmount - discountAmount;
 
-  // Create optimistic local order FIRST for instant UI response
+  if (isLiveSupabaseConfigured && supabase) {
+    const orderPayload = {
+      table_id: null,
+      status: 'NEW',
+      subtotal: newItemsSubtotal,
+      tax_amount: taxAmount,
+      discount_amount: discountAmount,
+      total_amount: totalAmount,
+      customer_name: cleanCustomerName,
+      customer_phone: customerPhone,
+      notes: notes
+    };
+
+    // Try up to 2 attempts (original + 1 retry) with a 10s timeout each
+    let createdOrder = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const orderPromise = supabase
+          .from('orders')
+          .insert([orderPayload])
+          .select()
+          .limit(1);
+
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Network timeout')), 10000)
+        );
+
+        const { data: orderData, error: orderError } = await Promise.race([orderPromise, timeoutPromise]);
+
+        if (!orderError && orderData && orderData.length > 0) {
+          createdOrder = orderData[0];
+          break; // Success
+        }
+        if (orderError) console.warn(`Order insert attempt ${attempt + 1} error:`, orderError.message);
+      } catch (netErr) {
+        console.warn(`Order insert attempt ${attempt + 1} timeout/error:`, netErr.message);
+      }
+    }
+
+    if (!createdOrder) {
+      throw new Error('Unable to connect to kitchen server. Please check your internet connection and try again.');
+    }
+
+    const orderItemsPayload = validatedOrderItems.map(item => ({
+      order_id: createdOrder.id,
+      menu_item_id: isValidUUID(item.menu_item_id) ? item.menu_item_id : null,
+      item_name: item.item_name,
+      unit_price: Number(item.unit_price),
+      quantity: Number(item.quantity),
+      notes: item.notes || '',
+      subtotal: Number(item.subtotal)
+    }));
+
+    try {
+      await supabase.from('order_items').insert(orderItemsPayload);
+    } catch (itemErr) {
+      console.warn('Order items insert error:', itemErr);
+    }
+
+    notifyRealtimeOrders('new_order_placed', { orderId: createdOrder.id, customerName: cleanCustomerName, isAppend: false });
+
+    const fullOrder = { ...createdOrder, order_items: validatedOrderItems, items: validatedOrderItems };
+
+    const orders = localStore.getOrders();
+    orders.unshift(fullOrder);
+    localStore.saveOrders(orders);
+
+    return fullOrder;
+  }
+
+  // Pure Offline Mock Fallback (only when Supabase credentials are not configured)
   const orders = localStore.getOrders();
   const nextOrderNumber = orders.length > 0 ? Math.max(...orders.map(o => o.order_number || 0)) + 1 : 1;
 
-  const optimisticOrder = {
-    id: 'pending-' + Date.now(),
+  const mockOrder = {
+    id: 'ord-' + Date.now(),
     order_number: nextOrderNumber,
     table_id: null,
     status: 'NEW',
@@ -263,70 +336,10 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
     order_items: validatedOrderItems.map((item, idx) => ({ id: 'oi-' + Date.now() + '-' + idx, ...item }))
   };
 
-  if (isLiveSupabaseConfigured && supabase) {
-    try {
-      const orderPromise = supabase
-        .from('orders')
-        .insert([{
-          table_id: null,
-          status: 'NEW',
-          subtotal: newItemsSubtotal,
-          tax_amount: taxAmount,
-          discount_amount: discountAmount,
-          total_amount: totalAmount,
-          customer_name: cleanCustomerName,
-          customer_phone: customerPhone,
-          notes: notes
-        }])
-        .select()
-        .limit(1);
-
-      // 3.5s timeout protection against poor cellular data / network lag
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Network timeout')), 3500)
-      );
-
-      const { data: orderData, error: orderError } = await Promise.race([orderPromise, timeoutPromise]);
-
-      const createdOrder = orderData && orderData.length > 0 ? orderData[0] : null;
-
-      if (!orderError && createdOrder) {
-        const orderItemsPayload = validatedOrderItems.map(item => ({
-          order_id: createdOrder.id,
-          menu_item_id: isValidUUID(item.menu_item_id) ? item.menu_item_id : null,
-          item_name: item.item_name,
-          unit_price: Number(item.unit_price),
-          quantity: Number(item.quantity),
-          notes: item.notes || '',
-          subtotal: Number(item.subtotal)
-        }));
-
-        // Insert order_items in background — don't block the UI
-        supabase.from('order_items').insert(orderItemsPayload).then(() => {
-          // Broadcast AFTER items are written so kitchen sees complete data
-          notifyRealtimeOrders('new_order_placed', { orderId: createdOrder.id, customerName: cleanCustomerName, isAppend: false });
-        }).catch(itemErr => {
-          console.warn('Order items insert error:', itemErr);
-          notifyRealtimeOrders('new_order_placed', { orderId: createdOrder.id, customerName: cleanCustomerName, isAppend: false });
-        });
-
-        const fullOrder = { ...createdOrder, order_items: validatedOrderItems, items: validatedOrderItems };
-
-        orders.unshift(fullOrder);
-        localStore.saveOrders(orders);
-
-        return fullOrder;
-      }
-    } catch (netErr) {
-      console.warn('Supabase order creation network notice (falling back to fast local sync):', netErr);
-    }
-  }
-
-  // Local Storage Fallback Mode
-  orders.unshift(optimisticOrder);
+  orders.unshift(mockOrder);
   localStore.saveOrders(orders);
-  notifyRealtimeOrders('new_order_placed', { orderId: optimisticOrder.id, customerName: cleanCustomerName, isAppend: false });
-  return optimisticOrder;
+  notifyRealtimeOrders('new_order_placed', { orderId: mockOrder.id, customerName: cleanCustomerName, isAppend: false });
+  return mockOrder;
 }
 
 // Fetch all active orders with joined order_items guaranteed!
@@ -363,15 +376,17 @@ export async function getActiveOrders() {
 
 // Fetch single order details by ID
 export async function getOrderById(orderId) {
-  if (isLiveSupabaseConfigured && supabase && orderId) {
+  if (!orderId) return null;
+  if (isLiveSupabaseConfigured && supabase) {
+    if (!isValidUUID(orderId) && isNaN(Number(orderId))) {
+      return null;
+    }
     try {
       let query = supabase.from('orders').select('*');
       if (isValidUUID(orderId)) {
         query = query.eq('id', orderId);
-      } else if (!isNaN(Number(orderId))) {
-        query = query.eq('order_number', Number(orderId));
       } else {
-        query = query.eq('id', orderId);
+        query = query.eq('order_number', Number(orderId));
       }
 
       const { data, error } = await query.limit(1);
@@ -387,8 +402,10 @@ export async function getOrderById(orderId) {
         order.items = items || [];
         return order;
       }
+      return null;
     } catch (err) {
       console.error('Supabase getOrderById error:', err);
+      return null;
     }
   }
 

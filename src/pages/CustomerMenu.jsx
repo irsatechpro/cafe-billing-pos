@@ -46,7 +46,7 @@ export default function CustomerMenu() {
       try {
         const ord = await getOrderById(activeOrderId);
         if (ord) {
-          if (ord.status === 'COMPLETED' || ord.status === 'CANCELLED') {
+          if (ord.status === 'COMPLETED' || ord.status === 'CANCELLED' || ord.status === 'PAID') {
             // Bill is already paid at cashier counter! Reset so next scan is fresh
             clearCustomerSession();
             setActiveOrder(null);
@@ -54,6 +54,7 @@ export default function CustomerMenu() {
             setActiveOrder(ord);
           }
         } else {
+          clearCustomerSession();
           setActiveOrder(null);
         }
       } catch (e) {
