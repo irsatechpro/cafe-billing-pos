@@ -43,12 +43,31 @@ export function CartProvider({ children }) {
     }
   }, [customerName]);
 
-  // If there's a saved customer name but NO active order, clear the session on mount.
-  // This handles the case where an order was paid/deleted but the name stayed in localStorage.
+  // On mount, validate saved session. If the saved order doesn't exist or is
+  // paid/completed/cancelled, clear everything so the customer starts fresh.
   useEffect(() => {
-    if (customerName && !activeOrderId) {
-      clearCustomerSession();
+    const savedOrderId = localStorage.getItem('trio_bean_active_order_id');
+    if (!savedOrderId) {
+      // No active order → clear any leftover name/cart
+      localStorage.removeItem('trio_bean_customer_name');
+      localStorage.removeItem('trio_bean_cart');
+      setCustomerName('');
+      setCartItems([]);
+      return;
     }
+    // Validate the saved order against Supabase
+    getOrderById(savedOrderId).then((ord) => {
+      const terminalStatuses = ['COMPLETED', 'CANCELLED', 'PAID'];
+      if (!ord || terminalStatuses.includes(ord.status)) {
+        // Order is gone or finished → full reset
+        localStorage.removeItem('trio_bean_customer_name');
+        localStorage.removeItem('trio_bean_active_order_id');
+        localStorage.removeItem('trio_bean_cart');
+        setCustomerName('');
+        setActiveOrderId(null);
+        setCartItems([]);
+      }
+    }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
