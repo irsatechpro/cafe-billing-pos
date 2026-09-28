@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Plus, Minus, ArrowRight, Coffee, AlertCircle, User, Sparkles } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ArrowRight, Coffee, AlertCircle, User, Sparkles, Loader2 } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { placeOrder, getActiveOrderForCustomer } from '../../services/orderService';
 import { useNavigate } from 'react-router-dom';
@@ -59,6 +59,7 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       const createdOrder = await placeOrder({
         activeOrderId: targetOrderId,
+        existingOrder,
         cartItems,
         customerName: fullCustomerName,
         customerPhone: customerPhone.trim(),
@@ -303,10 +304,13 @@ export default function CartDrawer({ isOpen, onClose }) {
               <button
                 onClick={handlePlaceOrder}
                 disabled={isSubmitting}
-                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#2C1A14] to-[#3E2723] hover:from-[#1F120C] hover:to-[#2C1A14] active:scale-[0.99] text-[#FDFBF7] font-bold text-sm flex items-center justify-center space-x-2 transition-all shadow-md shadow-[#2C1A14]/20 disabled:opacity-50"
+                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#2C1A14] to-[#3E2723] hover:from-[#1F120C] hover:to-[#2C1A14] active:scale-[0.99] text-[#FDFBF7] font-bold text-sm flex items-center justify-center space-x-2 transition-all shadow-md shadow-[#2C1A14]/20 disabled:opacity-60 cursor-pointer"
               >
                 {isSubmitting ? (
-                  <span>Sending order to kitchen...</span>
+                  <span className="flex items-center space-x-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#E5C170]" />
+                    <span>Sending order to kitchen...</span>
+                  </span>
                 ) : (
                   <>
                     <span className="uppercase tracking-wider">
