@@ -20,13 +20,18 @@ export default function CartDrawer({ isOpen, onClose }) {
     const trimmed = (customerName || '').trim();
     const storedId = activeOrderId || localStorage.getItem('trio_bean_active_order_id');
 
+    // Skip the expensive Supabase lookup if there's nothing to search for
+    if (!storedId && (!trimmed || trimmed === 'Guest')) {
+      setExistingOrder(null);
+      return;
+    }
+
     getActiveOrderForCustomer(storedId, trimmed).then((ord) => {
       if (ord && ord.id) {
         setExistingOrder(ord);
         if (activeOrderId !== ord.id) {
           setActiveOrderId(ord.id);
         }
-        // Auto-extract customer name if not already set
         if (ord.customer_name && !customerName) {
           const cleanName = ord.customer_name.replace(/\[.*?\]/g, '').trim();
           if (cleanName) {

@@ -241,6 +241,28 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
   const discountAmount = 0;
   const totalAmount = newItemsSubtotal + taxAmount - discountAmount;
 
+  // Create optimistic local order FIRST for instant UI response
+  const orders = localStore.getOrders();
+  const nextOrderNumber = orders.length > 0 ? Math.max(...orders.map(o => o.order_number || 0)) + 1 : 1;
+
+  const optimisticOrder = {
+    id: 'pending-' + Date.now(),
+    order_number: nextOrderNumber,
+    table_id: null,
+    status: 'NEW',
+    subtotal: newItemsSubtotal,
+    tax_amount: taxAmount,
+    discount_amount: discountAmount,
+    total_amount: totalAmount,
+    customer_name: cleanCustomerName,
+    customer_phone: customerPhone,
+    notes,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    items: validatedOrderItems.map((item, idx) => ({ id: 'oi-' + Date.now() + '-' + idx, ...item })),
+    order_items: validatedOrderItems.map((item, idx) => ({ id: 'oi-' + Date.now() + '-' + idx, ...item }))
+  };
+
   if (isLiveSupabaseConfigured && supabase) {
     try {
       const orderPromise = supabase
@@ -279,18 +301,19 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
           subtotal: Number(item.subtotal)
         }));
 
-        try {
-          await supabase.from('order_items').insert(orderItemsPayload);
-        } catch (itemErr) {
+        // Insert order_items in background — don't block the UI
+        supabase.from('order_items').insert(orderItemsPayload).then(() => {
+          // Broadcast AFTER items are written so kitchen sees complete data
+          notifyRealtimeOrders('new_order_placed', { orderId: createdOrder.id, customerName: cleanCustomerName, isAppend: false });
+        }).catch(itemErr => {
           console.warn('Order items insert error:', itemErr);
-        }
+          notifyRealtimeOrders('new_order_placed', { orderId: createdOrder.id, customerName: cleanCustomerName, isAppend: false });
+        });
 
         const fullOrder = { ...createdOrder, order_items: validatedOrderItems, items: validatedOrderItems };
 
-        const orders = localStore.getOrders();
         orders.unshift(fullOrder);
         localStore.saveOrders(orders);
-        notifyRealtimeOrders('new_order_placed', { orderId: createdOrder.id, customerName: cleanCustomerName, isAppend: false });
 
         return fullOrder;
       }
@@ -300,31 +323,10 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
   }
 
   // Local Storage Fallback Mode
-  const orders = localStore.getOrders();
-  const nextOrderNumber = orders.length > 0 ? Math.max(...orders.map(o => o.order_number || 0)) + 1 : 1;
-
-  const newOrder = {
-    id: 'ord-' + Date.now(),
-    order_number: nextOrderNumber,
-    table_id: null,
-    status: 'NEW',
-    subtotal: newItemsSubtotal,
-    tax_amount: taxAmount,
-    discount_amount: discountAmount,
-    total_amount: totalAmount,
-    customer_name: cleanCustomerName,
-    customer_phone: customerPhone,
-    notes,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    items: validatedOrderItems.map((item, idx) => ({ id: 'oi-' + Date.now() + '-' + idx, ...item })),
-    order_items: validatedOrderItems.map((item, idx) => ({ id: 'oi-' + Date.now() + '-' + idx, ...item }))
-  };
-
-  orders.unshift(newOrder);
+  orders.unshift(optimisticOrder);
   localStore.saveOrders(orders);
-  notifyRealtimeOrders('new_order_placed', { orderId: newOrder.id, customerName: cleanCustomerName, isAppend: false });
-  return newOrder;
+  notifyRealtimeOrders('new_order_placed', { orderId: optimisticOrder.id, customerName: cleanCustomerName, isAppend: false });
+  return optimisticOrder;
 }
 
 // Fetch all active orders with joined order_items guaranteed!
