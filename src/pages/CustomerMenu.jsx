@@ -5,11 +5,11 @@ import CategoryTabs from '../components/customer/CategoryTabs';
 import MenuCard from '../components/customer/MenuCard';
 import ProductDetailModal from '../components/customer/ProductDetailModal';
 import CartDrawer from '../components/customer/CartDrawer';
-import { getCategories, getMenuItems, getInstantCategories, getInstantMenuItems } from '../services/menuService';
+import { getCategories, getMenuItems } from '../services/menuService';
 import { getOrderById } from '../services/orderService';
 import { useCart } from '../context/CartContext';
 import { useCafe } from '../context/CafeContext';
-import { Coffee, Sparkles, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Coffee, Sparkles, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react';
 import { supabase, isLiveSupabaseConfigured, localStore } from '../lib/supabase';
 
 export default function CustomerMenu() {
@@ -22,9 +22,10 @@ export default function CustomerMenu() {
   const cafeQueryParam = params.get('cafe');
   const targetCafe = cafeQueryParam || activeCafe?.slug || activeCafe?.id || 'trio-bean';
 
-  // Instant Initial State (Zero Loading Spinner Delay!)
-  const [categories, setCategories] = useState(() => getInstantCategories(targetCafe));
-  const [menuItems, setMenuItems] = useState(() => getInstantMenuItems(targetCafe));
+  // Start empty – NO cached/seed data. We fetch everything fresh from Supabase.
+  const [categories, setCategories] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeOrder, setActiveOrder] = useState(null);
   
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
@@ -73,7 +74,7 @@ export default function CustomerMenu() {
     }
   }, [activeOrderId, clearCustomerSession]);
 
-  // Background sync with shared server API for target cafe
+  // Fetch fresh data from Supabase for target cafe
   const syncData = async (cafeIdentifier) => {
     try {
       const cid = cafeIdentifier || targetCafe;
@@ -88,7 +89,9 @@ export default function CustomerMenu() {
         setMenuItems(items);
       }
     } catch (err) {
-      console.error('Background menu sync error:', err);
+      console.error('Menu sync error:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -180,7 +183,15 @@ export default function CustomerMenu() {
 
       {/* Main Menu Grid: Fully Responsive for Mobile, Tablets, iPad, Laptops & Desktops */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        {menuItems.length === 0 ? (
+        {isLoading ? (
+          <div className="py-20 text-center max-w-sm mx-auto px-4">
+            <Loader2 className="w-10 h-10 text-[#C8963E] mx-auto mb-4 animate-spin" />
+            <h3 className="font-serif font-bold text-lg text-[#2C1A14]">Loading Menu...</h3>
+            <p className="text-xs text-[#6D4C41] mt-2 leading-relaxed">
+              Fetching the latest menu for you. Just a moment!
+            </p>
+          </div>
+        ) : menuItems.length === 0 ? (
           <div className="py-20 text-center max-w-sm mx-auto px-4">
             <div className="w-16 h-16 rounded-2xl bg-[#F5EFE6] border border-[#EFE6D8] flex items-center justify-center mx-auto mb-4 text-[#C8963E]">
               <Coffee className="w-8 h-8" />

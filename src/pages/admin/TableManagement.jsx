@@ -11,7 +11,10 @@ export default function TableManagement() {
   useEffect(() => {
     const origin = window.location.origin;
     const cafeQuery = activeCafe?.slug ? `cafe=${activeCafe.slug}` : '';
-    const fullUrl = `${origin}/menu${cafeQuery ? `?${cafeQuery}` : ''}`;
+    const baseUrl = `${origin}/menu${cafeQuery ? `?${cafeQuery}` : ''}`;
+    // Append a cache‑busting timestamp (or build version) so the QR always points to the newest bundle
+    const cacheBuster = `v=${Date.now()}`;
+    const fullUrl = cafeQuery ? `${baseUrl}&${cacheBuster}` : `${baseUrl}?${cacheBuster}`;
     setTargetUrl(fullUrl);
   }, [activeCafe?.slug]);
 

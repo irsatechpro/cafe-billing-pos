@@ -24,7 +24,12 @@ const extractBaseName = (name) => (name || '').replace(/\[.*?\]/g, '').trim().to
 
 // Find active unpaid order for a customer / device
 export async function getActiveOrderForCustomer(orderId = null, customerName = '') {
-  const activeStatuses = ['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'BILL_REQUESTED'];
+// Active statuses that allow a customer to keep adding items to the same order.
+// "SERVED" is kept here so staff can mark an order as served, then the same
+// customer can place another item and it will be merged into the same order.
+// When the staff clicks "PAID" (or moves the order to "COMPLETED"), the status
+// is no longer in this list, so a new scan creates a fresh order.
+const activeStatuses = ['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'BILL_REQUESTED'];
   const cleanBaseName = extractBaseName(customerName);
 
   // 1. If orderId is provided, first look up in Supabase (supporting both UUID id and numeric order_number)
@@ -195,9 +200,8 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
       orders.unshift(updatedObj);
     }
     localStore.saveOrders(orders);
-    notifyRealtimeOrders('new_order_placed', { orderId: existingActiveOrder.id, customerName: finalCustomerName, isAppend: true });
 
-    // Sync to Supabase in parallel
+    // Sync to Supabase FIRST, then broadcast so the kitchen sees complete data
     if (isLiveSupabaseConfigured && supabase) {
       const orderItemsPayload = validatedOrderItems.map(item => ({
         order_id: existingActiveOrder.id,
@@ -209,20 +213,25 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
         subtotal: Number(item.subtotal)
       }));
 
-      Promise.all([
-        supabase.from('order_items').insert(orderItemsPayload),
-        supabase.from('orders').update({
-          status: 'NEW',
-          subtotal: trueSubtotal,
-          total_amount: trueSubtotal,
-          customer_name: finalCustomerName,
-          notes: combinedNotes,
-          updated_at: new Date().toISOString()
-        }).eq('id', existingActiveOrder.id)
-      ]).catch(err => {
-        console.warn('Background Supabase append error (safely cached locally):', err);
-      });
+      try {
+        await Promise.all([
+          supabase.from('order_items').insert(orderItemsPayload),
+          supabase.from('orders').update({
+            status: 'NEW',
+            subtotal: trueSubtotal,
+            total_amount: trueSubtotal,
+            customer_name: finalCustomerName,
+            notes: combinedNotes,
+            updated_at: new Date().toISOString()
+          }).eq('id', existingActiveOrder.id)
+        ]);
+      } catch (err) {
+        console.warn('Supabase append error (safely cached locally):', err);
+      }
     }
+
+    // Broadcast AFTER DB write is complete so kitchen dashboard sees items immediately
+    notifyRealtimeOrders('new_order_placed', { orderId: existingActiveOrder.id, customerName: finalCustomerName, isAppend: true });
 
     return updatedObj;
   }

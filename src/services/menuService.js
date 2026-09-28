@@ -69,11 +69,10 @@ export async function uploadMenuImage(file) {
   }
 }
 
-// Instant cached categories fetch
+// Instant cached categories – returns only what's been fetched from Supabase (no seed data)
 export function getInstantCategories(cafeId) {
   const all = localStore.getCategories().filter(c => c.is_active && c.name && c.name.trim());
-  const unique = Array.from(new Map(all.map(c => [c.name.trim().toLowerCase(), c])).values());
-  return unique;
+  return Array.from(new Map(all.map(c => [c.name.trim().toLowerCase(), c])).values());
 }
 
 // Instant cached menu items fetch

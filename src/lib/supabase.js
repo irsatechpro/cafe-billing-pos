@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import menuSeedData from '../data/menu_store.json';
 
 // Retrieve environment variables with production live fallbacks
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://qnkdmpervtviauxfobwq.supabase.co';
@@ -18,18 +17,6 @@ export const supabase = isLiveSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-// Initial Local Storage Seed Data for Trio Bean Cafe
-const INITIAL_CATEGORIES = menuSeedData.categories || [];
-const INITIAL_MENU_ITEMS = menuSeedData.items || [];
-
-const INITIAL_TABLES = [
-  { id: 't1', table_number: '1', name: 'Table 1', qr_token: 'tb-tbl-1-token', is_active: true },
-  { id: 't2', table_number: '2', name: 'Table 2', qr_token: 'tb-tbl-2-token', is_active: true },
-  { id: 't3', table_number: '3', name: 'Table 3', qr_token: 'tb-tbl-3-token', is_active: true },
-  { id: 't4', table_number: '4', name: 'Table 4', qr_token: 'tb-tbl-4-token', is_active: true },
-  { id: 't5', table_number: '5', name: 'Table 5', qr_token: 'tb-tbl-5-token', is_active: true },
-];
-
 class LocalFallbackStore {
   constructor() {
     this.listeners = new Set();
@@ -37,23 +24,16 @@ class LocalFallbackStore {
   }
 
   init() {
-    // Ensure Trio Bean categories and items are always loaded and up-to-date with Supabase UUIDs
-    try {
-      const existingCats = localStorage.getItem('tb_categories');
-      const parsedCats = existingCats ? JSON.parse(existingCats || '[]') : [];
-      const hasLegacyMockIds = parsedCats.some(c => c.id && (c.id.includes('_cafe-default-001') || c.id.includes('c1000000-0000')));
-
-      if (!existingCats || parsedCats.length === 0 || hasLegacyMockIds) {
-        localStorage.setItem('tb_categories', JSON.stringify(INITIAL_CATEGORIES));
-        localStorage.setItem('tb_menu_items', JSON.stringify(INITIAL_MENU_ITEMS));
-      }
-    } catch {
-      localStorage.setItem('tb_categories', JSON.stringify(INITIAL_CATEGORIES));
-      localStorage.setItem('tb_menu_items', JSON.stringify(INITIAL_MENU_ITEMS));
+    // Only initialize empty storage keys – NO seed data.
+    // The app fetches everything from Supabase directly.
+    if (!localStorage.getItem('tb_categories')) {
+      localStorage.setItem('tb_categories', JSON.stringify([]));
     }
-
+    if (!localStorage.getItem('tb_menu_items')) {
+      localStorage.setItem('tb_menu_items', JSON.stringify([]));
+    }
     if (!localStorage.getItem('tb_tables')) {
-      localStorage.setItem('tb_tables', JSON.stringify(INITIAL_TABLES));
+      localStorage.setItem('tb_tables', JSON.stringify([]));
     }
     if (!localStorage.getItem('tb_orders')) {
       localStorage.setItem('tb_orders', JSON.stringify([]));
@@ -74,8 +54,7 @@ class LocalFallbackStore {
 
   // Categories
   getCategories() {
-    const cats = JSON.parse(localStorage.getItem('tb_categories') || '[]');
-    return cats.length > 0 ? cats : INITIAL_CATEGORIES;
+    return JSON.parse(localStorage.getItem('tb_categories') || '[]');
   }
   saveCategories(categories) {
     localStorage.setItem('tb_categories', JSON.stringify(categories));
@@ -84,8 +63,7 @@ class LocalFallbackStore {
 
   // Menu Items
   getMenuItems() {
-    const items = JSON.parse(localStorage.getItem('tb_menu_items') || '[]');
-    return items.length > 0 ? items : INITIAL_MENU_ITEMS;
+    return JSON.parse(localStorage.getItem('tb_menu_items') || '[]');
   }
   saveMenuItems(items) {
     localStorage.setItem('tb_menu_items', JSON.stringify(items));
