@@ -49,17 +49,37 @@ export function CartProvider({ children }) {
       
       const checkStatus = () => {
         getOrderById(activeOrderId).then((ord) => {
-          if (ord && (ord.status === 'COMPLETED' || ord.status === 'CANCELLED')) {
+          if (!ord) {
+            // Order no longer exists in database (deleted) – clear session
+            clearCustomerSession();
+            return;
+          }
+          // Clear session if order is in any terminal/paid state
+          const terminalStatuses = ['COMPLETED', 'CANCELLED', 'PAID'];
+          if (terminalStatuses.includes(ord.status)) {
             clearCustomerSession();
           }
         }).catch(() => {});
       };
 
+      // Check immediately on mount (covers QR re-scan)
       checkStatus();
 
-      // Also check on window focus (e.g. customer switches back from camera or browser tab)
+      // Check when customer switches back to browser tab or unlocks phone
+      const handleVisibility = () => {
+        if (document.visibilityState === 'visible') checkStatus();
+      };
       window.addEventListener('focus', checkStatus);
-      return () => window.removeEventListener('focus', checkStatus);
+      document.addEventListener('visibilitychange', handleVisibility);
+
+      // Also poll every 30 seconds in case the staff marks it as paid while the customer has the page open
+      const pollInterval = setInterval(checkStatus, 30000);
+
+      return () => {
+        window.removeEventListener('focus', checkStatus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+        clearInterval(pollInterval);
+      };
     } else {
       localStorage.removeItem('trio_bean_active_order_id');
     }
