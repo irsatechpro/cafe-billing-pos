@@ -22,71 +22,21 @@ export function notifyRealtimeOrders(eventType, payload = {}) {
 // Helper to extract base customer name without table suffix e.g. "Ravi [Table 1]" -> "ravi"
 const extractBaseName = (name) => (name || '').replace(/\[.*?\]/g, '').trim().toLowerCase();
 
-// Find active unpaid order for a customer / device
-export async function getActiveOrderForCustomer(orderId = null, customerName = '') {
-// Active statuses that allow a customer to keep adding items to the same order.
-// "SERVED" is kept here so staff can mark an order as served, then the same
-// customer can place another item and it will be merged into the same order.
-// When the staff clicks "PAID" (or moves the order to "COMPLETED"), the status
-// is no longer in this list, so a new scan creates a fresh order.
-const activeStatuses = ['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'BILL_REQUESTED'];
-  const cleanBaseName = extractBaseName(customerName);
+// Find active unpaid order for a customer / device (High-speed indexed UUID query)
+export async function getActiveOrderForCustomer(orderId = null) {
+  const activeStatuses = ['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'BILL_REQUESTED'];
 
-  // 1. If orderId is provided, first look up in Supabase (supporting both UUID id and numeric order_number)
-  if (orderId && isLiveSupabaseConfigured && supabase) {
+  if (orderId && isValidUUID(orderId) && isLiveSupabaseConfigured && supabase) {
     try {
-      let query = supabase.from('orders').select('*').in('status', activeStatuses);
-      if (isValidUUID(orderId)) {
-        query = query.eq('id', orderId);
-      } else if (!isNaN(Number(orderId))) {
-        query = query.eq('order_number', Number(orderId));
-      } else {
-        query = null;
-      }
-
-      if (query) {
-        const { data: activeOrders, error } = await query.limit(1);
-
-        if (!error && activeOrders && activeOrders.length > 0) {
-          const foundOrder = activeOrders[0];
-          const existingBase = extractBaseName(foundOrder.customer_name);
-
-          // Verify name compatibility
-          const isMatch = !cleanBaseName || !existingBase || existingBase === cleanBaseName || existingBase.includes(cleanBaseName) || cleanBaseName.includes(existingBase);
-
-          if (isMatch) {
-            const { data: items } = await supabase
-              .from('order_items')
-              .select('*')
-              .eq('order_id', foundOrder.id)
-              .order('created_at', { ascending: true });
-
-            foundOrder.order_items = items || [];
-            foundOrder.items = items || [];
-            return foundOrder;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('getActiveOrderForCustomer by orderId notice:', e);
-    }
-  }
-
-  // 2. Fallback: Always check by customer name for ANY active unpaid order in Supabase!
-  // If the same customer orders again from their seating, it will ALWAYS match their active order
-  // and append new items into the same bill instead of creating a separate order!
-  if (cleanBaseName && cleanBaseName !== 'guest' && isLiveSupabaseConfigured && supabase) {
-    try {
-      const { data: namedOrders, error } = await supabase
+      const { data: activeOrders } = await supabase
         .from('orders')
         .select('*')
-        .ilike('customer_name', `%${cleanBaseName}%`)
+        .eq('id', orderId)
         .in('status', activeStatuses)
-        .order('created_at', { ascending: false })
         .limit(1);
 
-      if (!error && namedOrders && namedOrders.length > 0) {
-        const foundOrder = namedOrders[0];
+      if (activeOrders && activeOrders.length > 0) {
+        const foundOrder = activeOrders[0];
         const { data: items } = await supabase
           .from('order_items')
           .select('*')
@@ -98,32 +48,7 @@ const activeStatuses = ['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'BILL
         return foundOrder;
       }
     } catch (e) {
-      console.warn('getActiveOrderForCustomer by name notice:', e);
-    }
-  }
-
-  // 3. Fallback: LocalStore (ONLY when Supabase is NOT configured)
-  if (!isLiveSupabaseConfigured) {
-    const orders = localStore.getOrders();
-    if (orderId) {
-      const found = orders.find(o => {
-        if (o.id !== orderId && String(o.order_number) !== String(orderId)) return false;
-        if (!activeStatuses.includes(o.status)) return false;
-        const existingBase = extractBaseName(o.customer_name);
-        return !cleanBaseName || !existingBase || existingBase === cleanBaseName || existingBase.includes(cleanBaseName) || cleanBaseName.includes(existingBase);
-      });
-
-      if (found) return found;
-    }
-
-    if (cleanBaseName && cleanBaseName !== 'guest') {
-      const foundByName = orders.find(o => {
-        if (!activeStatuses.includes(o.status)) return false;
-        const existingBase = extractBaseName(o.customer_name);
-        return existingBase === cleanBaseName || existingBase.includes(cleanBaseName) || cleanBaseName.includes(existingBase);
-      });
-
-      if (foundByName) return foundByName;
+      console.warn('getActiveOrderForCustomer notice:', e);
     }
   }
 
@@ -138,9 +63,9 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
 
   const cleanCustomerName = customerName.trim() || 'Guest';
 
-  // Fast menu lookup: use local cached menu items for instantaneous 0ms lookup, avoiding network latency
+  // Instant menu item lookup: uses in-memory/cached items or cart items directly (0ms)
   const cachedItems = localStore.getMenuItems();
-  const dbMenuItems = cachedItems && cachedItems.length > 0 ? cachedItems : await getMenuItems(false);
+  const dbMenuItems = cachedItems && cachedItems.length > 0 ? cachedItems : cartItems;
   const dbItemMap = new Map(dbMenuItems.map(i => [i.id, i]));
 
   let newItemsSubtotal = 0;
@@ -154,7 +79,7 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
     newItemsSubtotal += itemSubtotal;
 
     validatedOrderItems.push({
-      menu_item_id: dbItem.id || cartItem.id,
+      menu_item_id: isValidUUID(dbItem.id || cartItem.id) ? (dbItem.id || cartItem.id) : null,
       item_name: dbItem.name || cartItem.name,
       unit_price: unitPrice,
       quantity,
@@ -163,8 +88,8 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
     });
   }
 
-  // Check if customer already has an active unpaid order (ONLY with valid Supabase UUID)
-  const candidateOrder = existingOrder || (await getActiveOrderForCustomer(activeOrderId, cleanCustomerName));
+  // Check if customer already has an active unpaid order (0ms if activeOrderId is null)
+  const candidateOrder = existingOrder || (isValidUUID(activeOrderId) ? await getActiveOrderForCustomer(activeOrderId) : null);
   const existingActiveOrder = (candidateOrder && isValidUUID(candidateOrder.id)) ? candidateOrder : null;
 
   if (existingActiveOrder) {
@@ -207,7 +132,7 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
     if (isLiveSupabaseConfigured && supabase) {
       const orderItemsPayload = validatedOrderItems.map(item => ({
         order_id: existingActiveOrder.id,
-        menu_item_id: isValidUUID(item.menu_item_id) ? item.menu_item_id : null,
+        menu_item_id: item.menu_item_id,
         item_name: item.item_name,
         unit_price: Number(item.unit_price),
         quantity: Number(item.quantity),
@@ -257,35 +182,24 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
       notes: notes
     };
 
-    // Try up to 2 attempts (original + 1 retry) with a 10s timeout each
-    let createdOrder = null;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const orderPromise = supabase
-          .from('orders')
-          .insert([orderPayload])
-          .select()
-          .limit(1);
+    const orderPromise = supabase
+      .from('orders')
+      .insert([orderPayload])
+      .select()
+      .limit(1);
 
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Network timeout')), 10000)
-        );
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Network timeout')), 6000)
+    );
 
-        const { data: orderData, error: orderError } = await Promise.race([orderPromise, timeoutPromise]);
+    const { data: orderData, error: orderError } = await Promise.race([orderPromise, timeoutPromise]);
 
-        if (!orderError && orderData && orderData.length > 0) {
-          createdOrder = orderData[0];
-          break; // Success
-        }
-        if (orderError) console.warn(`Order insert attempt ${attempt + 1} error:`, orderError.message);
-      } catch (netErr) {
-        console.warn(`Order insert attempt ${attempt + 1} timeout/error:`, netErr.message);
-      }
+    if (orderError || !orderData || orderData.length === 0) {
+      console.warn('Order insert error:', orderError);
+      throw new Error('Unable to connect to kitchen server. Please tap Send Order again.');
     }
 
-    if (!createdOrder) {
-      throw new Error('Unable to connect to kitchen server. Please check your internet connection and try again.');
-    }
+    const createdOrder = orderData[0];
 
     const orderItemsPayload = validatedOrderItems.map(item => ({
       order_id: createdOrder.id,

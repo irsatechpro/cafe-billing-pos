@@ -22,10 +22,10 @@ export default function CustomerMenu() {
   const cafeQueryParam = params.get('cafe');
   const targetCafe = cafeQueryParam || activeCafe?.slug || activeCafe?.id || 'trio-bean';
 
-  // Start empty – NO cached/seed data. We fetch everything fresh from Supabase.
-  const [categories, setCategories] = useState([]);
-  const [menuItems, setMenuItems] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Instant render: use cached Supabase items immediately so menu opens in 0ms!
+  const [categories, setCategories] = useState(() => localStore.getCategories());
+  const [menuItems, setMenuItems] = useState(() => localStore.getMenuItems());
+  const [isLoading, setIsLoading] = useState(() => localStore.getMenuItems().length === 0);
   const [activeOrder, setActiveOrder] = useState(null);
   
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
