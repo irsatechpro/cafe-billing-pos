@@ -43,6 +43,15 @@ export function CartProvider({ children }) {
     }
   }, [customerName]);
 
+  // If there's a saved customer name but NO active order, clear the session on mount.
+  // This handles the case where an order was paid/deleted but the name stayed in localStorage.
+  useEffect(() => {
+    if (customerName && !activeOrderId) {
+      clearCustomerSession();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (activeOrderId) {
       localStorage.setItem('trio_bean_active_order_id', activeOrderId);
