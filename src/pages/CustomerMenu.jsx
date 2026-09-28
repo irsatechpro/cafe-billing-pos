@@ -80,7 +80,7 @@ export default function CustomerMenu() {
       const [cats, items] = await Promise.all([getCategories(cid), getMenuItems(true, cid)]);
       if (cats && cats.length > 0) {
         setCategories(cats);
-        setSelectedCategoryId(prev => (prev && cats.some(c => c.id === prev) ? prev : cats[0].id));
+        setSelectedCategoryId(prev => (prev && cats.some(c => c.id === prev) ? prev : null));
       } else {
         setCategories([]);
       }

@@ -270,7 +270,11 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
           subtotal: Number(item.subtotal)
         }));
 
-        supabase.from('order_items').insert(orderItemsPayload).catch(e => console.warn('Order items insert bg:', e));
+        try {
+          await supabase.from('order_items').insert(orderItemsPayload);
+        } catch (itemErr) {
+          console.warn('Order items insert error:', itemErr);
+        }
 
         const fullOrder = { ...createdOrder, order_items: validatedOrderItems, items: validatedOrderItems };
 

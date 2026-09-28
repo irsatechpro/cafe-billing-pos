@@ -37,15 +37,21 @@ class LocalFallbackStore {
   }
 
   init() {
-    // Ensure Trio Bean categories and items are always loaded
-    const existingCats = localStorage.getItem('tb_categories');
-    if (!existingCats || JSON.parse(existingCats || '[]').length === 0) {
+    // Ensure Trio Bean categories and items are always loaded and up-to-date with Supabase UUIDs
+    try {
+      const existingCats = localStorage.getItem('tb_categories');
+      const parsedCats = existingCats ? JSON.parse(existingCats || '[]') : [];
+      const hasLegacyMockIds = parsedCats.some(c => c.id && (c.id.includes('_cafe-default-001') || c.id.includes('c1000000-0000')));
+
+      if (!existingCats || parsedCats.length === 0 || hasLegacyMockIds) {
+        localStorage.setItem('tb_categories', JSON.stringify(INITIAL_CATEGORIES));
+        localStorage.setItem('tb_menu_items', JSON.stringify(INITIAL_MENU_ITEMS));
+      }
+    } catch {
       localStorage.setItem('tb_categories', JSON.stringify(INITIAL_CATEGORIES));
-    }
-    const existingItems = localStorage.getItem('tb_menu_items');
-    if (!existingItems || JSON.parse(existingItems || '[]').length === 0) {
       localStorage.setItem('tb_menu_items', JSON.stringify(INITIAL_MENU_ITEMS));
     }
+
     if (!localStorage.getItem('tb_tables')) {
       localStorage.setItem('tb_tables', JSON.stringify(INITIAL_TABLES));
     }
