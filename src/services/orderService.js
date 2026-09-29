@@ -182,21 +182,15 @@ export async function placeOrder({ activeOrderId = null, existingOrder = null, c
       notes: notes
     };
 
-    const orderPromise = supabase
+    const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .insert([orderPayload])
       .select()
       .limit(1);
 
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Network timeout')), 6000)
-    );
-
-    const { data: orderData, error: orderError } = await Promise.race([orderPromise, timeoutPromise]);
-
     if (orderError || !orderData || orderData.length === 0) {
       console.warn('Order insert error:', orderError);
-      throw new Error('Unable to connect to kitchen server. Please tap Send Order again.');
+      throw new Error(orderError?.message || 'Unable to connect to kitchen server. Please tap Send Order again.');
     }
 
     const createdOrder = orderData[0];
