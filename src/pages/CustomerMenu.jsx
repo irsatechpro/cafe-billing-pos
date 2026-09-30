@@ -26,6 +26,7 @@ export default function CustomerMenu() {
   const [categories, setCategories] = useState(() => localStore.getCategories());
   const [menuItems, setMenuItems] = useState(() => localStore.getMenuItems());
   const [isLoading, setIsLoading] = useState(() => localStore.getMenuItems().length === 0);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [activeOrder, setActiveOrder] = useState(null);
   
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
@@ -77,6 +78,7 @@ export default function CustomerMenu() {
 
   // Fetch fresh data from Supabase for target cafe
   const syncData = async (cafeIdentifier) => {
+    setIsSyncing(true);
     try {
       const cid = cafeIdentifier || targetCafe;
       const [cats, items] = await Promise.all([getCategories(cid), getMenuItems(true, cid)]);
@@ -93,6 +95,7 @@ export default function CustomerMenu() {
       console.error('Menu sync error:', err);
     } finally {
       setIsLoading(false);
+      setIsSyncing(false);
     }
   };
 
@@ -140,7 +143,7 @@ export default function CustomerMenu() {
         setIsSearching={setIsSearching}
       />
 
-      {/* Hero Branding Strip */}
+      {/* Hero Branding Strip with Live Activity Indicator */}
       <div className="bg-gradient-to-r from-[#2C1A14] via-[#3E2723] to-[#2C1A14] text-[#FDFBF7] px-4 sm:px-6 lg:px-8 py-3 border-b border-[#C8963E]/30">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -149,15 +152,23 @@ export default function CustomerMenu() {
               {activeCafe?.tagline || 'Fresh • Tasty • Made Daily'}
             </span>
           </div>
-          {customerName ? (
-            <span className="text-[11px] font-bold text-[#E5C170] bg-white/10 px-2.5 py-0.5 rounded-full">
-              Welcome back, {customerName}!
-            </span>
-          ) : (
-            <span className="text-[11px] font-mono text-stone-300 bg-white/10 px-2 py-0.5 rounded">
-              QR Digital Menu
-            </span>
-          )}
+          <div className="flex items-center space-x-2">
+            {isSyncing && (
+              <span className="inline-flex items-center space-x-1 text-[10px] text-amber-200/90 bg-[#C8963E]/20 border border-[#C8963E]/40 px-2 py-0.5 rounded-full font-mono font-medium animate-pulse">
+                <Loader2 className="w-3 h-3 animate-spin text-[#E5C170]" />
+                <span>Updating menu...</span>
+              </span>
+            )}
+            {customerName ? (
+              <span className="text-[11px] font-bold text-[#E5C170] bg-white/10 px-2.5 py-0.5 rounded-full">
+                Welcome back, {customerName}!
+              </span>
+            ) : (
+              <span className="text-[11px] font-mono text-stone-300 bg-white/10 px-2 py-0.5 rounded">
+                QR Digital Menu
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
