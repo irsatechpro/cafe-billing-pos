@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Retrieve environment variables with production live fallbacks
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://qnkdmpervtviauxfobwq.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_-nPnPwybbM7nGXIeeLDmLA_Xs1FxD-o';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lfyokcvvwrooavhskhnc.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_m8igtOZJtwykyiwT24iNCQ_lanvqWcZ';
 
 // Check if credentials are properly provided
 export const isLiveSupabaseConfigured = Boolean(
