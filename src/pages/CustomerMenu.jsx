@@ -9,11 +9,11 @@ import { getCategories, getMenuItems } from '../services/menuService';
 import { getOrderById } from '../services/orderService';
 import { useCart } from '../context/CartContext';
 import { useCafe } from '../context/CafeContext';
-import { Coffee, Sparkles, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react';
+import { Coffee, Sparkles, ChevronRight, CheckCircle2, Loader2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { supabase, isLiveSupabaseConfigured, localStore } from '../lib/supabase';
 
 export default function CustomerMenu() {
-  const { customerName, activeOrderId, clearCustomerSession } = useCart();
+  const { customerName, activeOrderId, clearCustomerSession, cartItems, totalItemsCount, subtotal } = useCart();
   const { activeCafe } = useCafe();
   const navigate = useNavigate();
   
@@ -219,8 +219,37 @@ export default function CustomerMenu() {
         />
       )}
 
+      {/* Prominent High-Visibility Floating "View Cart & Order" Bar for All Mobile Users */}
+      {cartItems.length > 0 && !isCartOpen && (
+        <div className="fixed bottom-4 inset-x-0 z-40 max-w-lg mx-auto px-4 animate-slide-up">
+          <button
+            onClick={() => setIsCartOpen(true)}
+            className="w-full bg-[#2C1A14] text-[#FDFBF7] py-3.5 px-5 rounded-2xl shadow-2xl border-2 border-[#C8963E] flex items-center justify-between hover:bg-[#3E2723] active:scale-[0.99] transition-all"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-[#C8963E] text-[#2C1A14] flex items-center justify-center font-extrabold text-sm shadow-md">
+                <ShoppingBag className="w-5 h-5 text-[#2C1A14]" />
+              </div>
+              <div className="text-left">
+                <span className="text-[11px] font-bold text-[#E5C170] uppercase tracking-wider block">
+                  {totalItemsCount} {totalItemsCount === 1 ? 'ITEM' : 'ITEMS'} ADDED
+                </span>
+                <span className="font-serif font-extrabold text-lg text-white">
+                  ₹{subtotal}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2 bg-[#C8963E] text-[#2C1A14] font-bold text-xs px-4 py-2 rounded-xl shadow-md">
+              <span className="tracking-wide uppercase">VIEW CART & ORDER</span>
+              <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+            </div>
+          </button>
+        </div>
+      )}
+
       {/* Floating Active Order Notification Bar (If customer placed order and reopened menu) */}
-      {activeOrder && activeOrder.status !== 'COMPLETED' && activeOrder.status !== 'CANCELLED' && (
+      {activeOrder && activeOrder.status !== 'COMPLETED' && activeOrder.status !== 'CANCELLED' && cartItems.length === 0 && (
         <div className="fixed bottom-3 inset-x-0 z-40 max-w-lg mx-auto px-4 animate-slide-up">
           <div 
             onClick={() => navigate(`/order/${activeOrder.id}`)}

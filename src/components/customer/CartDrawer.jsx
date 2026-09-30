@@ -17,16 +17,15 @@ export default function CartDrawer({ isOpen, onClose }) {
   useEffect(() => {
     if (!isOpen) return;
 
-    const trimmed = (customerName || '').trim();
     const storedId = activeOrderId || localStorage.getItem('trio_bean_active_order_id');
 
-    // Skip the expensive Supabase lookup if there's nothing to search for
-    if (!storedId && (!trimmed || trimmed === 'Guest')) {
+    // Only query if storedId is a real Supabase UUID
+    if (!storedId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(storedId)) {
       setExistingOrder(null);
       return;
     }
 
-    getActiveOrderForCustomer(storedId, trimmed).then((ord) => {
+    getActiveOrderForCustomer(storedId).then((ord) => {
       if (ord && ord.id) {
         setExistingOrder(ord);
         if (activeOrderId !== ord.id) {

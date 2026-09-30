@@ -3,11 +3,21 @@ import { getMenuItems } from './menuService';
 
 const isValidUUID = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
+// Singleton channel for broadcasting orders
+let sharedBroadcastChannel = null;
+function getBroadcastChannel() {
+  if (!sharedBroadcastChannel && isLiveSupabaseConfigured && supabase) {
+    sharedBroadcastChannel = supabase.channel('trio-bean-orders-desk');
+    sharedBroadcastChannel.subscribe();
+  }
+  return sharedBroadcastChannel;
+}
+
 // Broadcast realtime event across all open staff/kitchen screens via Supabase channel
 export function notifyRealtimeOrders(eventType, payload = {}) {
   try {
-    if (isLiveSupabaseConfigured && supabase) {
-      const channel = supabase.channel('trio-bean-orders-desk');
+    const channel = getBroadcastChannel();
+    if (channel) {
       channel.send({
         type: 'broadcast',
         event: eventType,
