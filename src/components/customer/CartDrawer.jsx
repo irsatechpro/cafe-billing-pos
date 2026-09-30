@@ -90,8 +90,8 @@ export default function CartDrawer({ isOpen, onClose }) {
       clearCart();
       onClose();
 
-      // Navigate to live order tracking screen
-      navigate(`/order/${createdOrder.id}`);
+      // Navigate to live order tracking screen with instant order state (0ms wait!)
+      navigate(`/order/${createdOrder.id}`, { state: { order: createdOrder } });
     } catch (err) {
       console.error('Order creation error:', err);
       setErrorMessage(err.message || 'Failed to place order. Please try again.');

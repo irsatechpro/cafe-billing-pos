@@ -99,31 +99,19 @@ export default function CustomerMenu() {
   useEffect(() => {
     syncData(targetCafe);
 
-    // 1. Universal Realtime Live Sync via Server-Sent Events (SSE)
-    let eventSource = null;
-    try {
-      eventSource = new EventSource('/api/menu/stream');
-      eventSource.addEventListener('menu_updated', () => {
-        syncData(targetCafe);
-      });
-    } catch (e) {
-      console.warn('SSE connection unavailable:', e);
-    }
-
-    // 2. LocalStore Subscription
+    // 1. LocalStore Subscription
     const unsubLocal = localStore.subscribe((event) => {
       if (event === 'menu_updated' || event === 'categories_updated') {
         syncData(targetCafe);
       }
     });
 
-    // 3. Window focus / visibility change re-sync
+    // 2. Window focus / visibility change re-sync
     const handleFocus = () => syncData(targetCafe);
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
 
     return () => {
-      if (eventSource) eventSource.close();
       unsubLocal();
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getOrderById } from '../services/orderService';
 import { useCart } from '../context/CartContext';
 import { CheckCircle2, Clock, Coffee, ArrowLeft, RefreshCw, Sparkles, Utensils } from 'lucide-react';
@@ -9,9 +9,16 @@ import { LoadingSpinner } from '../components/common/LoadingSpinner';
 export default function OrderStatusPage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { setActiveOrderId, clearCustomerSession } = useCart();
-  const [order, setOrder] = useState(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Instant 0ms render from passed order or local cache, zero loading spinner lag!
+  const [order, setOrder] = useState(() => {
+    if (location.state?.order) return location.state.order;
+    const cached = localStore.getOrders().find(o => o.id === orderId);
+    return cached || null;
+  });
+  const [loading, setLoading] = useState(() => !location.state?.order && !localStore.getOrders().some(o => o.id === orderId));
 
   const fetchOrder = useCallback(async () => {
     try {
